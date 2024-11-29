@@ -1,0 +1,339 @@
+{
+    "carrera": "Ingeniería En Informática",
+    "plan": "1621",
+    "año": "2021",
+    "materias": [
+      {
+        "codigo": "3.4.069",
+        "nombre": "Fundamentos de Informática",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": [
+          "3.4.071", "3.4.074", "3.4.208", "3.4.077", "3.4.211", "3.4.215",
+          "3.4.082", "3.4.210", "3.4.218", "3.4.216"
+        ]
+      },
+      {
+        "codigo": "3.4.164",
+        "nombre": "Sistemas de Información I",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": [
+          "3.4.207", "3.4.089", "3.4.094", "3.4.211", "3.4.214", "3.4.098"
+        ]
+      },
+      {
+        "codigo": "2.1.002",
+        "nombre": "Pensamiento Crítico y Comunicación",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.043",
+        "nombre": "Teoría de Sistemas",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.1.050",
+        "nombre": "Elementos de Álgebra y Geometría",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": ["3.1.051", "3.1.052", "3.1.055"]
+      },
+      {
+        "codigo": "3.4.071",
+        "nombre": "Programación I",
+        "correlativas_anteriores": ["3.4.069"],
+        "correlativas_posteriores": [
+          "3.4.074", "3.4.208", "3.4.082", "3.4.210", "3.4.077", "3.4.211",
+          "3.4.215", "3.4.218", "3.4.216"
+        ]
+      },
+      {
+        "codigo": "3.3.121",
+        "nombre": "Sistemas de Representación",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.2.178",
+        "nombre": "Fundamentos de Química",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.072",
+        "nombre": "Arquitectura de Computadores",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": ["3.4.075"]
+      },
+      {
+        "codigo": "3.1.024",
+        "nombre": "Matemática Discreta",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": [
+          "3.4.209", "3.4.215", "3.4.211", "3.4.213", "3.4.217"
+        ]
+      },
+      {
+        "codigo": "3.1.051",
+        "nombre": "Álgebra",
+        "correlativas_anteriores": ["3.1.050"],
+        "correlativas_posteriores": ["3.1.052", "3.1.055"]
+      },
+      {
+        "codigo": "3.4.074",
+        "nombre": "Programación II",
+        "correlativas_anteriores": ["3.4.071", "3.4.069"],
+        "correlativas_posteriores": ["3.4.077", "3.4.211", "3.4.215"]
+      },
+      {
+        "codigo": "3.4.207",
+        "nombre": "Sistemas de Información II",
+        "correlativas_anteriores": ["3.4.164"],
+        "correlativas_posteriores": [
+          "3.4.089", "3.4.094", "3.4.211", "3.4.214", "3.4.098"
+        ]
+      },
+      {
+        "codigo": "3.4.075",
+        "nombre": "Sistemas Operativos",
+        "correlativas_anteriores": ["3.4.072"],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.1.052",
+        "nombre": "Física I",
+        "correlativas_anteriores": ["3.1.051", "3.1.050"],
+        "correlativas_posteriores": ["3.1.055"]
+      },
+      {
+        "codigo": "3.1.053",
+        "nombre": "Cálculo I",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": [
+          "3.1.049", "3.1.054", "3.1.056", "3.1.025", "3.4.086", "3.4.217"
+        ]
+      },
+      {
+        "codigo": "3.4.077",
+        "nombre": "Programación III",
+        "correlativas_anteriores": ["3.4.074", "3.4.071", "3.4.069"],
+        "correlativas_posteriores": ["3.4.215"]
+      },
+      {
+        "codigo": "3.4.208",
+        "nombre": "Paradigma Orientado a Objetos",
+        "correlativas_anteriores": ["3.4.071", "3.4.069"],
+        "correlativas_posteriores": [
+          "3.4.082", "3.4.210", "3.4.218", "3.4.216"
+        ]
+      },
+      {
+        "codigo": "3.4.078",
+        "nombre": "Fundamentos de Telecomunicaciones",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": ["3.4.212", "3.4.092"]
+      },
+      {
+        "codigo": "3.4.209",
+        "nombre": "Ingeniería de Datos I",
+        "correlativas_anteriores": ["3.1.024"],
+        "correlativas_posteriores": ["3.4.211", "3.4.213", "3.4.217"]
+      },
+      {
+        "codigo": "3.1.054",
+        "nombre": "Cálculo II",
+        "correlativas_anteriores": ["3.1.053"],
+        "correlativas_posteriores": ["3.1.025"]
+      },
+      {
+        "codigo": "3.4.210",
+        "nombre": "Proceso de Desarrollo de Software",
+        "correlativas_anteriores": ["3.4.208", "3.4.071", "3.4.069"],
+        "correlativas_posteriores": ["3.4.216", "3.4.218"]
+      },
+      {
+        "codigo": "3.4.211",
+        "nombre": "Seminario de Integración Profesional",
+        "correlativas_anteriores": [
+          "3.4.074", "3.4.207", "3.4.209", "3.4.071", "3.1.024", "3.4.164", "3.4.069"
+         ],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.212",
+        "nombre": "Teleinformática y Redes",
+        "correlativas_anteriores": ["3.4.078"],
+        "correlativas_posteriores": ["3.4.092"]
+      },
+      {
+        "codigo": "3.4.213",
+        "nombre": "Ingeniería de Datos II",
+        "correlativas_anteriores": ["3.4.209", "3.1.024"],
+        "correlativas_posteriores": ["3.4.217"]
+      },
+      {
+        "codigo": "3.1.049",
+        "nombre": "Probabilidad y Estadística",
+        "correlativas_anteriores": ["3.1.053"],
+        "correlativas_posteriores": ["3.1.056", "3.4.086", "3.4.217", "3.4.096"]
+      },
+      {
+        "codigo": "2.4.216",
+        "nombre": "Examen de Inglés",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.082",
+        "nombre": "Aplicaciones Interactivas",
+        "correlativas_anteriores": ["3.4.208", "3.4.071", "3.4.069"],
+        "correlativas_posteriores": ["3.4.218"]
+      },
+      {
+        "codigo": "3.4.214",
+        "nombre": "Ingeniería de Software",
+        "correlativas_anteriores": ["3.4.207", "3.4.164"],
+        "correlativas_posteriores": ["3.4.098"]
+      },
+      {
+        "codigo": "3.1.055",
+        "nombre": "Física II",
+        "correlativas_anteriores": ["3.1.052", "3.1.051", "3.1.050"],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.215",
+        "nombre": "Teoría de la Computación",
+        "correlativas_anteriores": ["3.1.024", "3.4.077", "3.4.074", "3.4.071", "3.4.069"],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.1.056",
+        "nombre": "Estadística Avanzada",
+        "correlativas_anteriores": ["3.1.049", "3.1.053"],
+        "correlativas_posteriores": ["3.4.096"]
+      },
+      {
+        "codigo": "3.4.216",
+        "nombre": "Desarrollo de Aplicaciones I",
+        "correlativas_anteriores": ["3.4.210", "3.4.208", "3.4.071", "3.4.069"],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.089",
+        "nombre": "Dirección de Proyectos Informáticos",
+        "correlativas_anteriores": ["3.4.207", "3.4.164"],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.217",
+        "nombre": "Ciencia de Datos",
+        "correlativas_anteriores": ["3.1.049", "3.4.213", "3.1.053", "3.4.209", "3.1.024"],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.092",
+        "nombre": "Seguridad e Integridad de la Información",
+        "correlativas_anteriores": ["3.4.212", "3.4.078"],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.1.025",
+        "nombre": "Modelado y Simulación",
+        "correlativas_anteriores": ["3.1.054", "3.1.053"],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "1",
+        "nombre": "Optativa I",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.218",
+        "nombre": "Desarrollo de Aplicaciones II",
+        "correlativas_anteriores": [
+          "3.4.082", "3.4.210", "3.4.208", "3.4.071", "3.4.069"
+        ],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.086",
+        "nombre": "Evaluación de Proyectos Informáticos",
+        "correlativas_anteriores": ["3.1.049", "3.1.053"],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.096",
+        "nombre": "Inteligencia Artificial",
+        "correlativas_anteriores": ["3.1.056", "3.1.049", "3.1.053"],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.219",
+        "nombre": "Tecnología y Medio Ambiente",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "PPS06",
+        "nombre": "Práctica Profesional Supervisada",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "2",
+        "nombre": "Optativa II",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.094",
+        "nombre": "Arquitectura de Aplicaciones",
+        "correlativas_anteriores": ["3.4.207", "3.4.164"],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.220",
+        "nombre": "Tendencias Tecnológicas",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.100",
+        "nombre": "Proyecto Final de Ingeniería en Informática",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.098",
+        "nombre": "Calidad de Software",
+        "correlativas_anteriores": ["3.4.214", "3.4.207", "3.4.164"],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3",
+        "nombre": "Optativa III",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.221",
+        "nombre": "Negocios Tecnológicos",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "3.4.135",
+        "nombre": "Tecnología e Innovación",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": []
+      },
+      {
+        "codigo": "2.3.056",
+        "nombre": "Derecho Informático",
+        "correlativas_anteriores": [],
+        "correlativas_posteriores": []
+      }
+    ]
+  }
