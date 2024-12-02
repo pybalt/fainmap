@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { sendVerificationEmail } from '../lib/emailService';
 
 declare global {
   interface Window {
@@ -48,16 +49,41 @@ const LandingPage = (): JSX.Element => {
       }
 
       if (isLogin) {
-        // Verificar si el usuario existe
-        const { error } = await supabase
+        // Verificar si el usuario existe y está verificado
+        const { data: user, error } = await supabase
           .from('users')
           .select('*')
           .eq('studentid', legajo)
           .single();
 
-        if (error) {
+        if (error || !user) {
           console.error('Error al buscar usuario:', error);
           throw new Error('Credenciales inválidas');
+        }
+
+        if (!user.email_verified) {
+          const verificationToken = crypto.randomUUID();
+          
+          // Actualizar el token de verificación
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ 
+              verification_token: verificationToken,
+              verification_timestamp: Date.now(),
+              verification_email: user.email
+            })
+            .eq('studentid', user.studentid);
+
+          if (updateError) throw updateError;
+
+          // Enviar email usando los datos del usuario
+          await sendVerificationEmail(
+            user.email,
+            `${user.firstname} ${user.lastname}`,
+            verificationToken
+          );
+          
+          throw new Error('Tu email aún no ha sido verificado. Por favor, revisa tu bandeja de entrada o spam para encontrar el email de verificación.');
         }
 
         localStorage.setItem('userLegajo', legajo);
@@ -71,6 +97,24 @@ const LandingPage = (): JSX.Element => {
           throw new Error('Los códigos de legajo no coinciden');
         }
 
+        // Verificar si el usuario ya existe
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('email_verified')
+          .eq('studentid', legajo)
+          .single();
+
+        if (existingUser) {
+          if (existingUser.email_verified) {
+            throw new Error('Este legajo ya está registrado y verificado.');
+          } else {
+            throw new Error('Este legajo ya está registrado. Por favor, verifica tu email para completar el registro.');
+          }
+        }
+
+        // Generar token de verificación
+        const verificationToken = crypto.randomUUID();
+
         // Intentar crear el usuario
         const nameParts = email.split('@')[0].split('.');
         const firstName = nameParts[0] || '';
@@ -83,7 +127,11 @@ const LandingPage = (): JSX.Element => {
               studentid: legajo,
               email: email,
               firstname: firstName.charAt(0).toUpperCase() + firstName.slice(1),
-              lastname: lastName.charAt(0).toUpperCase() + lastName.slice(1)
+              lastname: lastName.charAt(0).toUpperCase() + lastName.slice(1),
+              email_verified: false,
+              verification_token: verificationToken,
+              verification_timestamp: Date.now(),
+              verification_email: email
             }
           ])
           .select()
@@ -91,16 +139,17 @@ const LandingPage = (): JSX.Element => {
 
         if (insertError) {
           console.error('Error al insertar usuario:', insertError);
-          // Si es un error de validación de la DB o cualquier otro error
-          if (insertError.code === '23514' || // check violation
-              insertError.code === '23505') { // unique violation
+          if (insertError.code === '23514' || insertError.code === '23505') {
             throw new Error('Credenciales inválidas');
           }
           throw new Error('Error en el servidor. Por favor, intente más tarde.');
         }
 
-        localStorage.setItem('userLegajo', legajo);
-        navigate('/dashboard');
+        // Enviar email de verificación
+        await sendVerificationEmail(email, `${firstName} ${lastName}`, verificationToken);
+
+        alert('Te hemos enviado un enlace de verificación. Por favor, verifica tu cuenta antes de ingresar.');
+        navigate('/');
       }
     } catch (error) {
       console.error('Error completo:', error);
