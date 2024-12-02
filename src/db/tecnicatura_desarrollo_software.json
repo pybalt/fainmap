@@ -1,0 +1,216 @@
+{
+  "carrera": "Tecnicatura Universitaria en Desarrollo de Software",
+  "plan": 1121,
+  "año": 2021,
+  "materias": [
+    {
+      "codigo": "3.4.225",
+      "nombre": "Introduucción a la Algoritmia",
+      "año_sugerido": 1,
+      "cuatrimestre_sugerido": 1,
+      "correlativas_anteriores": [],
+      "correlativas_posteriores": [
+        "3.4.227",
+        "3.4.229",
+        "3.4.231"
+      ]
+    },
+    {
+      "codigo": "3.4.164",
+      "nombre": "Sistemas de Información I",
+      "año_sugerido": 1,
+      "cuatrimestre_sugerido": 1,
+      "correlativas_anteriores": [],
+      "correlativas_posteriores": [
+        "3.4.207"
+      ]
+    },
+    {
+      "codigo": "3.4.072",
+      "nombre": "Arquitectura de Computadores",
+      "año_sugerido": 1,
+      "cuatrimestre_sugerido": 1,
+      "correlativas_anteriores": [],
+      "correlativas_posteriores": [
+        "3.4.075"
+      ]
+    },
+    {
+      "codigo": "3.4.226",
+      "nombre": "Diseño y Desarrollo Web",
+      "año_sugerido": 1,
+      "cuatrimestre_sugerido": 1,
+      "correlativas_anteriores": [],
+      "correlativas_posteriores": []
+    },
+    {
+      "codigo": "3.4.227",
+      "nombre": "Algoritmos y Estructuras de Datos I",
+      "año_sugerido": 1,
+      "cuatrimestre_sugerido": 2,
+      "correlativas_anteriores": [
+        "3.4.225"
+      ],
+      "correlativas_posteriores": [
+        "3.4.229",
+        "3.4.231"
+      ]
+    },
+    {
+      "codigo": "3.4.207",
+      "nombre": "Sistemas de Información II",
+      "año_sugerido": 1,
+      "cuatrimestre_sugerido": 2,
+      "correlativas_anteriores": [
+        "3.4.164"
+      ],
+      "correlativas_posteriores": []
+    },
+    {
+      "codigo": "3.4.075",
+      "nombre": "Sistemas Operativos",
+      "año_sugerido": 1,
+      "cuatrimestre_sugerido": 2,
+      "correlativas_anteriores": [
+        "3.4.072"
+      ],
+      "correlativas_posteriores": []
+    },
+    {
+      "codigo": "3.4.228",
+      "nombre": "Testing de Aplicaciones",
+      "año_sugerido": 1,
+      "cuatrimestre_sugerido": 2,
+      "correlativas_anteriores": [],
+      "correlativas_posteriores": []
+    },
+    {
+      "codigo": "3.4.229",
+      "nombre": "Algoritmos y Estructuras de Datos II",
+      "año_sugerido": 2,
+      "cuatrimestre_sugerido": 1,
+      "correlativas_anteriores": [
+        "3.4.225",
+        "3.4.227"
+      ],
+      "correlativas_posteriores": [
+        "3.4.231"
+      ]
+    },
+    {
+      "codigo": "3.4.208",
+      "nombre": "Paradigma Orientado a Objetos",
+      "año_sugerido": 2,
+      "cuatrimestre_sugerido": 1,
+      "correlativas_anteriores": [],
+      "correlativas_posteriores": [
+        "3.4.210",
+        "3.4.082",
+        "3.4.216",
+        "3.4.232"
+      ]
+    },
+    {
+      "codigo": "3.4.230",
+      "nombre": "Redes de Datos",
+      "año_sugerido": 2,
+      "cuatrimestre_sugerido": 1,
+      "correlativas_anteriores": [],
+      "correlativas_posteriores": []
+    },
+    {
+      "codigo": "3.4.209",
+      "nombre": "Ingeniería de Datos I",
+      "año_sugerido": 2,
+      "cuatrimestre_sugerido": 1,
+      "correlativas_anteriores": [],
+      "correlativas_posteriores": [
+        "3.4.213",
+        "3.4.232"
+      ]
+    },
+    {
+      "codigo": "1",
+      "nombre": "Optativa I",
+      "año_sugerido": 2,
+      "cuatrimestre_sugerido": 2,
+      "correlativas_anteriores": [],
+      "correlativas_posteriores": []
+    },
+    {
+      "codigo": "3.4.231",
+      "nombre": "Diseño y Análisis de Algoritmos",
+      "año_sugerido": 2,
+      "cuatrimestre_sugerido": 2,
+      "correlativas_anteriores": [
+        "3.4.225",
+        "3.4.227",
+        "3.4.229"
+      ],
+      "correlativas_posteriores": []
+    },
+    {
+      "codigo": "3.4.210",
+      "nombre": "Proceso de Desarrollo de Software",
+      "año_sugerido": 2,
+      "cuatrimestre_sugerido": 2,
+      "correlativas_anteriores": [
+        "3.4.208"
+      ],
+      "correlativas_posteriores": []
+    },
+    {
+      "codigo": "3.4.082",
+      "nombre": "Aplicaciones Interactivas",
+      "año_sugerido": 2,
+      "cuatrimestre_sugerido": 2,
+      "correlativas_anteriores": [
+        "3.4.208"
+      ],
+      "correlativas_posteriores": [
+        "3.4.216",
+        "3.4.232"
+      ]
+    },
+    {
+      "codigo": "2",
+      "nombre": "Optativa II",
+      "año_sugerido": 3,
+      "cuatrimestre_sugerido": 1,
+      "correlativas_anteriores": [],
+      "correlativas_posteriores": []
+    },
+    {
+      "codigo": "3.4.216",
+      "nombre": "Desarrollo de Aplicaciones I",
+      "año_sugerido": 3,
+      "cuatrimestre_sugerido": 1,
+      "correlativas_anteriores": [
+        "3.4.208",
+        "3.4.082"
+      ],
+      "correlativas_posteriores": []
+    },
+    {
+      "codigo": "3.4.213",
+      "nombre": "Ingeniería de Datos II",
+      "año_sugerido": 3,
+      "cuatrimestre_sugerido": 1,
+      "correlativas_anteriores": [
+        "3.4.209"
+      ],
+      "correlativas_posteriores": []
+    },
+    {
+      "codigo": "3.4.232",
+      "nombre": "Trabajo Integrador Final",
+      "año_sugerido": 3,
+      "cuatrimestre_sugerido": 1,
+      "correlativas_anteriores": [
+        "3.4.208",
+        "3.4.082",
+        "3.4.209"
+      ]
+    }
+  ]
+}
