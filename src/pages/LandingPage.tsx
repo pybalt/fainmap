@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { sendVerificationEmail } from '../lib/emailService';
 
 declare global {
   interface Window {
@@ -61,10 +62,18 @@ const LandingPage = (): JSX.Element => {
         }
 
         if (!user.email_verified) {
-          // Reenviar email de verificación
-          await supabase.auth.signInWithOtp({
-            email: user.email
-          });
+          // Generar nuevo token de verificación
+          const verificationToken = crypto.randomUUID();
+          const expirationTime = Date.now() + 30 * 60 * 1000; // 30 minutos
+
+          // Guardar token y su expiración en localStorage
+          localStorage.setItem('verificationToken', verificationToken);
+          localStorage.setItem('verificationExpiration', expirationTime.toString());
+          localStorage.setItem('pendingLegajo', legajo);
+
+          // Enviar email de verificación
+          await sendVerificationEmail(user.email, `${user.firstname} ${user.lastname}`, verificationToken);
+          
           throw new Error('Por favor verifica tu email. Se ha enviado un nuevo código de verificación.');
         }
 
@@ -83,6 +92,8 @@ const LandingPage = (): JSX.Element => {
         const nameParts = email.split('@')[0].split('.');
         const firstName = nameParts[0] || '';
         const lastName = nameParts[1] || '';
+        const verificationToken = crypto.randomUUID();
+        const expirationTime = Date.now() + 60 * 60 * 1000; // 1 hora
 
         const { error: insertError } = await supabase
           .from('users')
@@ -100,24 +111,22 @@ const LandingPage = (): JSX.Element => {
 
         if (insertError) {
           console.error('Error al insertar usuario:', insertError);
-          // Si es un error de validación de la DB o cualquier otro error
-          if (insertError.code === '23514' || // check violation
-              insertError.code === '23505') { // unique violation
+          if (insertError.code === '23514' || insertError.code === '23505') {
             throw new Error('Credenciales inválidas');
           }
           throw new Error('Error en el servidor. Por favor, intente más tarde.');
         }
 
-        await supabase.auth.signInWithOtp({
-          email: email
-        });
+        // Guardar información de verificación en localStorage
+        localStorage.setItem('verificationToken', verificationToken);
+        localStorage.setItem('verificationExpiration', expirationTime.toString());
+        localStorage.setItem('pendingLegajo', legajo);
 
-        localStorage.setItem('userLegajo', legajo);
-        navigate('/dashboard');
+        // Enviar email de verificación
+        await sendVerificationEmail(email, `${firstName} ${lastName}`, verificationToken);
 
-        // Modificar el mensaje después del registro
         alert('Te hemos enviado un email de verificación. Por favor, verifica tu cuenta antes de ingresar.');
-        navigate('/verify-email'); // Nueva página de verificación
+        navigate('/verify-email');
       }
     } catch (error) {
       console.error('Error completo:', error);
