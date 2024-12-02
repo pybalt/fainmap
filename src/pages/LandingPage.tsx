@@ -62,19 +62,7 @@ const LandingPage = (): JSX.Element => {
         }
 
         if (!user.email_verified) {
-          // Generar nuevo token de verificación
-          const verificationToken = crypto.randomUUID();
-          const expirationTime = Date.now() + 30 * 60 * 1000; // 30 minutos
-
-          // Guardar token y su expiración en localStorage
-          localStorage.setItem('verificationToken', verificationToken);
-          localStorage.setItem('verificationExpiration', expirationTime.toString());
-          localStorage.setItem('pendingLegajo', legajo);
-
-          // Enviar email de verificación
-          await sendVerificationEmail(user.email, `${user.firstname} ${user.lastname}`, verificationToken);
-          
-          throw new Error('Por favor verifica tu email. Se ha enviado un nuevo código de verificación.');
+          throw new Error('Tu email aún no ha sido verificado. Por favor, revisa tu bandeja de entrada o spam para encontrar el email de verificación.');
         }
 
         localStorage.setItem('userLegajo', legajo);
@@ -88,12 +76,28 @@ const LandingPage = (): JSX.Element => {
           throw new Error('Los códigos de legajo no coinciden');
         }
 
+        // Verificar si el usuario ya existe
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('email_verified')
+          .eq('studentid', legajo)
+          .single();
+
+        if (existingUser) {
+          if (existingUser.email_verified) {
+            throw new Error('Este legajo ya está registrado y verificado.');
+          } else {
+            throw new Error('Este legajo ya está registrado. Por favor, verifica tu email para completar el registro.');
+          }
+        }
+
+        // Generar token de verificación
+        const verificationToken = crypto.randomUUID();
+
         // Intentar crear el usuario
         const nameParts = email.split('@')[0].split('.');
         const firstName = nameParts[0] || '';
         const lastName = nameParts[1] || '';
-        const verificationToken = crypto.randomUUID();
-        const expirationTime = Date.now() + 60 * 60 * 1000; // 1 hora
 
         const { error: insertError } = await supabase
           .from('users')
@@ -103,7 +107,9 @@ const LandingPage = (): JSX.Element => {
               email: email,
               firstname: firstName.charAt(0).toUpperCase() + firstName.slice(1),
               lastname: lastName.charAt(0).toUpperCase() + lastName.slice(1),
-              email_verified: false
+              email_verified: false,
+              verification_token: verificationToken,
+              verification_timestamp: Date.now().toString()
             }
           ])
           .select()
@@ -117,16 +123,11 @@ const LandingPage = (): JSX.Element => {
           throw new Error('Error en el servidor. Por favor, intente más tarde.');
         }
 
-        // Guardar información de verificación en localStorage
-        localStorage.setItem('verificationToken', verificationToken);
-        localStorage.setItem('verificationExpiration', expirationTime.toString());
-        localStorage.setItem('pendingLegajo', legajo);
-
         // Enviar email de verificación
         await sendVerificationEmail(email, `${firstName} ${lastName}`, verificationToken);
 
-        alert('Te hemos enviado un email de verificación. Por favor, verifica tu cuenta antes de ingresar.');
-        navigate('/verify-email');
+        alert('Te hemos enviado un enlace de verificación. Por favor, verifica tu cuenta antes de ingresar. El enlace expirará en 15 minutos.');
+        navigate('/');
       }
     } catch (error) {
       console.error('Error completo:', error);
