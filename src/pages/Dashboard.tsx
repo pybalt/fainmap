@@ -639,6 +639,11 @@ const Dashboard = (): JSX.Element => {
     document.body.style.overflow = 'hidden';
   }, []);
 
+  // Actualizar el título cuando el componente se monta
+  useEffect(() => {
+    document.title = 'UADE: FAIN MAP';
+  }, []);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
