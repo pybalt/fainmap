@@ -62,11 +62,27 @@ const LandingPage = (): JSX.Element => {
         }
 
         if (!user.email_verified) {
-          const nameParts = email.split('@')[0].split('.');
-          const firstName = nameParts[0] || '';
-          const lastName = nameParts[1] || '';
           const verificationToken = crypto.randomUUID();
-          await sendVerificationEmail(email, `${firstName} ${lastName}`, verificationToken);
+          
+          // Actualizar el token de verificación
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ 
+              verification_token: verificationToken,
+              verification_timestamp: Date.now(),
+              verification_email: user.email
+            })
+            .eq('studentid', user.studentid);
+
+          if (updateError) throw updateError;
+
+          // Enviar email usando los datos del usuario
+          await sendVerificationEmail(
+            user.email,
+            `${user.firstname} ${user.lastname}`,
+            verificationToken
+          );
+          
           throw new Error('Tu email aún no ha sido verificado. Por favor, revisa tu bandeja de entrada o spam para encontrar el email de verificación.');
         }
 
