@@ -13,12 +13,12 @@ Para agregar una nueva carrera, crea un archivo JSON en el directorio `src/db/` 
   "año": 2021,
   "materias": [
     {
-      "id": "código_único",
       "codigo": "código_materia",
       "nombre": "Nombre de la Materia",
-      "correlativas": ["código_correlativa1", "código_correlativa2"],
-      "año": 1,
-      "cuatrimestre": 1
+      "correlativas_anteriores": ["código_correlativa1", "código_correlativa2"],
+      "correlativas_posteriores": ["código_correlativa3", "código_correlativa4"],
+      "año_sugerido": 1,
+      "cuatrimestre_sugerido": 1
     }
   ]
 }
