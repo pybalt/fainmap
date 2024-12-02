@@ -1,12 +1,12 @@
 import type { Theme } from '../types/theme';
 
 interface FooterProps {
-  currentTheme: Theme;
+  theme: Theme;
 }
 
-const Footer = (): JSX.Element => {
+const Footer = ({ theme }: FooterProps): JSX.Element => {
   return (
-    <footer className="text-center p-4 text-sm text-gray-600 dark:text-gray-400">
+    <footer className={`text-center p-4 ${theme.secondaryText}`}>
       <p>
         Desarrollado por{' '}
         <a

@@ -124,6 +124,19 @@ const calculateInitialPositions = (subjects: SubjectNodeType[]): LayoutData => {
   };
 };
 
+// Agregar interfaces para los datos de Supabase
+interface CareerSubject {
+  subjectid: number;
+  suggested_year: number;
+  suggested_quarter: number;
+  subjects: {
+    subjectid: number;
+    code: string;
+    name: string;
+  };
+}
+
+// Modificar la función loadSubjectsWithPrerequisites
 const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutData> => {
   console.log('Cargando materias para carrera:', careerid);
   
@@ -150,7 +163,7 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
         name
       )
     `)
-    .eq('careerid', careerid);
+    .eq('careerid', careerid) as { data: CareerSubject[] | null, error: any };
 
   if (careerSubjectsError) throw careerSubjectsError;
   if (!careerSubjectsData || careerSubjectsData.length === 0) {
@@ -674,7 +687,7 @@ const Dashboard = (): JSX.Element => {
         </div>
       </main>
 
-      <Footer currentTheme={currentTheme} />
+      <Footer theme={currentTheme} />
     </div>
   );
 };

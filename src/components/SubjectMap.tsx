@@ -126,11 +126,14 @@ const SubjectMap: React.FC<SubjectMapProps> = ({
     );
   }, [subjects]);
 
-  const isCorrelative = useCallback((subjectId: number) => {
+  const isCorrelative = useCallback((subjectId: number): boolean => {
     if (!hoveredSubject) return false;
     const subject = subjects.find(s => s.subjectid === hoveredSubject);
-    return subject?.prerequisites.includes(subjectId) || 
-           subjects.find(s => s.subjectid === subjectId)?.prerequisites.includes(hoveredSubject);
+    if (!subject) return false;
+    const otherSubject = subjects.find(s => s.subjectid === subjectId);
+    if (!otherSubject) return false;
+    return subject.prerequisites.includes(subjectId) || 
+           otherSubject.prerequisites.includes(hoveredSubject);
   }, [hoveredSubject, subjects]);
 
   return (
