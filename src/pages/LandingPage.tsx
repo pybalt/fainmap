@@ -109,7 +109,8 @@ const LandingPage = (): JSX.Element => {
               lastname: lastName.charAt(0).toUpperCase() + lastName.slice(1),
               email_verified: false,
               verification_token: verificationToken,
-              verification_timestamp: Date.now().toString()
+              verification_timestamp: Date.now(),
+              verification_email: email
             }
           ])
           .select()

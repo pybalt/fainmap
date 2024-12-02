@@ -1,66 +1,66 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 const VerifyEmail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     const handleVerification = async () => {
       try {
-        // Obtener datos de verificación del localStorage
-        const storedToken = localStorage.getItem('verificationToken');
-        const expirationTime = localStorage.getItem('verificationExpiration');
-        const pendingLegajo = localStorage.getItem('pendingLegajo');
+        const token = searchParams.get('token');
 
-        if (!storedToken || !expirationTime || !pendingLegajo) {
-          throw new Error('Información de verificación no encontrada');
+        if (!token) {
+          throw new Error('Token de verificación no encontrado');
         }
 
-        // Verificar si el token ha expirado
-        if (Date.now() > parseInt(expirationTime)) {
-          throw new Error('El link de verificación ha expirado. Por favor, solicita uno nuevo.');
-        }
-
-        // Buscar usuario con el legajo pendiente
+        // Buscar usuario con el token de verificación
         const { data: user, error: userError } = await supabase
           .from('users')
           .select('*')
-          .eq('studentid', pendingLegajo)
+          .eq('verification_token', token)
           .single();
 
         if (userError || !user) {
-          throw new Error('Usuario no encontrado');
+          throw new Error('Token de verificación inválido');
         }
 
-        // Actualizar el estado de verificación
+        // Verificar que el email coincida con el registrado
+        if (user.email !== user.verification_email) {
+          throw new Error('Token de verificación inválido o manipulado');
+        }
+
+        // Verificar si el token ha expirado (15 minutos)
+        const tokenTimestamp = user.verification_timestamp;
+        if (Date.now() - tokenTimestamp > 15 * 60 * 1000) {
+          throw new Error('El enlace de verificación ha expirado. Por favor, contacta a soporte.');
+        }
+
+        // Actualizar el estado de verificación y limpiar todos los datos de verificación
         const { error: updateError } = await supabase
           .from('users')
-          .update({ email_verified: true })
-          .eq('studentid', pendingLegajo);
+          .update({ 
+            email_verified: true,
+            verification_token: null,
+            verification_timestamp: null,
+            verification_email: null
+          })
+          .eq('studentid', user.studentid);
 
         if (updateError) throw updateError;
 
-        // Limpiar datos de verificación y establecer usuario como verificado
-        localStorage.removeItem('verificationToken');
-        localStorage.removeItem('verificationExpiration');
-        localStorage.removeItem('pendingLegajo');
-        localStorage.setItem('userLegajo', pendingLegajo);
-
+        // Guardar legajo y redirigir al dashboard
+        localStorage.setItem('userLegajo', user.studentid);
+        
         setTimeout(() => {
           navigate('/dashboard');
         }, 2000);
       } catch (error) {
         console.error('Error en verificación:', error);
         setError(error instanceof Error ? error.message : 'Error al verificar el email');
-        
-        // Limpiar datos de verificación en caso de error
-        localStorage.removeItem('verificationToken');
-        localStorage.removeItem('verificationExpiration');
-        localStorage.removeItem('pendingLegajo');
-        
         setTimeout(() => {
           navigate('/');
         }, 3000);
@@ -70,7 +70,7 @@ const VerifyEmail = () => {
     };
 
     handleVerification();
-  }, [navigate]);
+  }, [navigate, searchParams]);
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
@@ -85,11 +85,16 @@ const VerifyEmail = () => {
         ) : error ? (
           <div className="text-center">
             <p className="text-red-600">{error}</p>
-            <p className="text-gray-600 mt-2">Redirigiendo...</p>
+            <p className="text-gray-600 mt-2">Redirigiendo al inicio...</p>
           </div>
         ) : (
           <div className="text-center">
-            <p className="text-green-600">¡Email verificado correctamente!</p>
+            <div className="mb-4">
+              <svg className="w-16 h-16 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-xl font-semibold text-green-600">¡Email verificado correctamente!</p>
             <p className="text-gray-600 mt-2">Redirigiendo al dashboard...</p>
           </div>
         )}
