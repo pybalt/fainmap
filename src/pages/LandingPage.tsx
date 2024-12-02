@@ -47,11 +47,6 @@ const LandingPage = (): JSX.Element => {
         throw new Error('Error de verificación de seguridad');
       }
 
-      // Validaciones adicionales para ambos casos
-      if (legajo.length < 4) {
-        throw new Error('Credenciales inválidas');
-      }
-
       if (isLogin) {
         // Verificar si el usuario existe
         const { error } = await supabase
@@ -68,11 +63,6 @@ const LandingPage = (): JSX.Element => {
         localStorage.setItem('userLegajo', legajo);
         navigate('/dashboard');
       } else {
-        const emailName = email.split('@')[0];
-        if (emailName.length < 5) {
-          throw new Error('Credenciales inválidas');
-        }
-
         if (!email.endsWith('@uade.edu.ar')) {
           throw new Error('Credenciales inválidas');
         }
@@ -81,44 +71,12 @@ const LandingPage = (): JSX.Element => {
           throw new Error('Los códigos de legajo no coinciden');
         }
 
-        // Verificar si el usuario ya existe
-        const { data: existingUser, error: checkError } = await supabase
-          .from('users')
-          .select('studentid')
-          .eq('studentid', legajo)
-          .single();
-
-        if (checkError && checkError.code !== 'PGRST116') {
-          console.error('Error al verificar usuario existente:', checkError);
-          throw new Error('Credenciales inválidas');
-        }
-
-        if (existingUser) {
-          throw new Error('Credenciales inválidas');
-        }
-
-        // Verificar si el email ya está en uso
-        const { data: emailUser, error: emailError } = await supabase
-          .from('users')
-          .select('email')
-          .eq('email', email)
-          .single();
-
-        if (emailError && emailError.code !== 'PGRST116') {
-          console.error('Error al verificar email:', emailError);
-          throw new Error('Credenciales inválidas');
-        }
-
-        if (emailUser) {
-          throw new Error('Credenciales inválidas');
-        }
-
-        // Crear nuevo usuario
+        // Intentar crear el usuario
         const nameParts = email.split('@')[0].split('.');
         const firstName = nameParts[0] || '';
         const lastName = nameParts[1] || '';
 
-        const { data: newUser, error: insertError } = await supabase
+        const { error: insertError } = await supabase
           .from('users')
           .insert([
             {
@@ -133,10 +91,14 @@ const LandingPage = (): JSX.Element => {
 
         if (insertError) {
           console.error('Error al insertar usuario:', insertError);
-          throw new Error('Credenciales inválidas');
+          // Si es un error de validación de la DB o cualquier otro error
+          if (insertError.code === '23514' || // check violation
+              insertError.code === '23505') { // unique violation
+            throw new Error('Credenciales inválidas');
+          }
+          throw new Error('Error en el servidor. Por favor, intente más tarde.');
         }
 
-        console.log('Usuario registrado exitosamente:', newUser);
         localStorage.setItem('userLegajo', legajo);
         navigate('/dashboard');
       }
