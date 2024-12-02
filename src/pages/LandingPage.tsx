@@ -41,11 +41,15 @@ const LandingPage = (): JSX.Element => {
     setLoading(true);
 
     try {
-      // Ejecutar reCAPTCHA v3
       const token = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
       
       if (!token) {
         throw new Error('Error de verificación de seguridad');
+      }
+
+      // Validaciones adicionales para ambos casos
+      if (legajo.length < 4) {
+        throw new Error('Credenciales inválidas');
       }
 
       if (isLogin) {
@@ -58,22 +62,25 @@ const LandingPage = (): JSX.Element => {
 
         if (error) {
           console.error('Error al buscar usuario:', error);
-          throw new Error('Código de legajo no encontrado');
+          throw new Error('Credenciales inválidas');
         }
 
         localStorage.setItem('userLegajo', legajo);
         navigate('/dashboard');
       } else {
-        // Validar email y legajo
+        const emailName = email.split('@')[0];
+        if (emailName.length < 5) {
+          throw new Error('Credenciales inválidas');
+        }
+
         if (!email.endsWith('@uade.edu.ar')) {
-          throw new Error('El email debe ser de UADE (@uade.edu.ar)');
+          throw new Error('Credenciales inválidas');
         }
 
         if (legajo !== confirmLegajo) {
           throw new Error('Los códigos de legajo no coinciden');
         }
 
-        console.log('Verificando si el usuario existe...');
         // Verificar si el usuario ya existe
         const { data: existingUser, error: checkError } = await supabase
           .from('users')
@@ -83,14 +90,14 @@ const LandingPage = (): JSX.Element => {
 
         if (checkError && checkError.code !== 'PGRST116') {
           console.error('Error al verificar usuario existente:', checkError);
-          throw new Error('Error al verificar el código de legajo');
+          throw new Error('Credenciales inválidas');
         }
 
         if (existingUser) {
-          throw new Error('Este código de legajo ya está registrado');
+          throw new Error('Credenciales inválidas');
         }
 
-        // También verificar si el email ya está en uso
+        // Verificar si el email ya está en uso
         const { data: emailUser, error: emailError } = await supabase
           .from('users')
           .select('email')
@@ -99,14 +106,13 @@ const LandingPage = (): JSX.Element => {
 
         if (emailError && emailError.code !== 'PGRST116') {
           console.error('Error al verificar email:', emailError);
-          throw new Error('Error al verificar el email');
+          throw new Error('Credenciales inválidas');
         }
 
         if (emailUser) {
-          throw new Error('Este email ya está registrado');
+          throw new Error('Credenciales inválidas');
         }
 
-        console.log('Intentando registrar nuevo usuario...');
         // Crear nuevo usuario
         const nameParts = email.split('@')[0].split('.');
         const firstName = nameParts[0] || '';
@@ -127,7 +133,7 @@ const LandingPage = (): JSX.Element => {
 
         if (insertError) {
           console.error('Error al insertar usuario:', insertError);
-          throw new Error('Error al registrar el usuario: ' + insertError.message);
+          throw new Error('Credenciales inválidas');
         }
 
         console.log('Usuario registrado exitosamente:', newUser);
