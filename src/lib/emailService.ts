@@ -4,10 +4,18 @@ import { Resend } from 'resend';
 const resend = new Resend(import.meta.env.VITE_RESEND_API_KEY);
 
 export const sendVerificationEmail = async (email: string, name: string, verificationToken: string) => {
+  console.log('Iniciando envío de email de verificación:', {
+    to: email,
+    name,
+    token: verificationToken,
+    apiKey: import.meta.env.VITE_RESEND_API_KEY ? 'Configurada' : 'No configurada'
+  });
+
   try {
     const verificationUrl = `${window.location.origin}/verify-email?token=${verificationToken}`;
+    console.log('URL de verificación generada:', verificationUrl);
     
-    await resend.emails.send({
+    const emailData = {
       from: 'UADEMaps <onboarding@resend.dev>',
       to: email,
       subject: 'Verifica tu email - UADEMaps',
@@ -49,9 +57,25 @@ export const sendVerificationEmail = async (email: string, name: string, verific
           </p>
         </div>
       `
+    };
+
+    console.log('Configuración del email preparada:', {
+      to: emailData.to,
+      from: emailData.from,
+      subject: emailData.subject
     });
+
+    const response = await resend.emails.send(emailData);
+    console.log('Respuesta de Resend:', response);
+
+    return response;
   } catch (error) {
-    console.error('Error enviando email:', error);
+    console.error('Error detallado al enviar email:', {
+      error,
+      errorMessage: error instanceof Error ? error.message : 'Error desconocido',
+      errorStack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
     throw error;
   }
 };
