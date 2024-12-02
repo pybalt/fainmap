@@ -48,16 +48,24 @@ const LandingPage = (): JSX.Element => {
       }
 
       if (isLogin) {
-        // Verificar si el usuario existe
-        const { error } = await supabase
+        // Verificar si el usuario existe y está verificado
+        const { data: user, error } = await supabase
           .from('users')
           .select('*')
           .eq('studentid', legajo)
           .single();
 
-        if (error) {
+        if (error || !user) {
           console.error('Error al buscar usuario:', error);
           throw new Error('Credenciales inválidas');
+        }
+
+        if (!user.email_verified) {
+          // Reenviar email de verificación
+          await supabase.auth.signInWithOtp({
+            email: user.email
+          });
+          throw new Error('Por favor verifica tu email. Se ha enviado un nuevo código de verificación.');
         }
 
         localStorage.setItem('userLegajo', legajo);
@@ -106,6 +114,10 @@ const LandingPage = (): JSX.Element => {
 
         localStorage.setItem('userLegajo', legajo);
         navigate('/dashboard');
+
+        // Modificar el mensaje después del registro
+        alert('Te hemos enviado un email de verificación. Por favor, verifica tu cuenta antes de ingresar.');
+        navigate('/verify-email'); // Nueva página de verificación
       }
     } catch (error) {
       console.error('Error completo:', error);
