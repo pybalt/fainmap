@@ -62,6 +62,11 @@ const LandingPage = (): JSX.Element => {
         }
 
         if (!user.email_verified) {
+          const nameParts = email.split('@')[0].split('.');
+          const firstName = nameParts[0] || '';
+          const lastName = nameParts[1] || '';
+          const verificationToken = crypto.randomUUID();
+          await sendVerificationEmail(email, `${firstName} ${lastName}`, verificationToken);
           throw new Error('Tu email aún no ha sido verificado. Por favor, revisa tu bandeja de entrada o spam para encontrar el email de verificación.');
         }
 
