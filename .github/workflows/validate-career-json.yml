@@ -1,0 +1,33 @@
+name: Validate Career JSON
+
+on:
+  pull_request:
+    paths:
+      - 'src/db/*.json'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: npm install
+        
+      - name: Find changed JSON files
+        id: changed-files
+        uses: tj-actions/changed-files@v39
+        with:
+          files: src/db/*.json
+          
+      - name: Validate JSON files
+        run: |
+          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+            echo "Validando $file..."
+            node scripts/validate-career-json.js "$file"
+          done 
