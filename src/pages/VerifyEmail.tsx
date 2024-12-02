@@ -9,12 +9,14 @@ const VerifyEmail = () => {
   useEffect(() => {
     const handleVerification = async () => {
       try {
-        // Obtener token de la URL
+        // Obtener token y email de la URL
         const hash = window.location.hash;
-        const token = new URLSearchParams(hash.substring(1)).get('token');
+        const params = new URLSearchParams(hash.substring(1));
+        const token = params.get('token');
+        const emailFromUrl = params.get('email');
 
-        if (!token) {
-          throw new Error('No se encontró token de verificación');
+        if (!token || !emailFromUrl) {
+          throw new Error('No se encontró token de verificación o email');
         }
 
         // Verificar el token con Supabase
@@ -29,7 +31,7 @@ const VerifyEmail = () => {
         await supabase
           .from('users')
           .update({ email_verified: true })
-          .eq('email', email); // Necesitarás obtener el email del contexto o la URL
+          .eq('email', emailFromUrl);
 
         alert('Email verificado correctamente. Ya puedes ingresar.');
         navigate('/');
