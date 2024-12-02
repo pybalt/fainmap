@@ -4,7 +4,7 @@ interface FooterProps {
   theme: Theme;
 }
 
-const Footer = ({ theme }: FooterProps): JSX.Element => {
+const Footer: React.FC<FooterProps> = ({ theme }) => {
   return (
     <footer className={`text-center p-4 ${theme.secondaryText}`}>
       <p>
