@@ -126,7 +126,7 @@ const LandingPage = (): JSX.Element => {
         // Enviar email de verificación
         await sendVerificationEmail(email, `${firstName} ${lastName}`, verificationToken);
 
-        alert('Te hemos enviado un enlace de verificación. Por favor, verifica tu cuenta antes de ingresar. El enlace expirará en 15 minutos.');
+        alert('Te hemos enviado un enlace de verificación. Por favor, verifica tu cuenta antes de ingresar.');
         navigate('/');
       }
     } catch (error) {

@@ -16,7 +16,6 @@ export const sendVerificationEmail = async (email: string, name: string, verific
         <div style="background-color: #f3f4f6; padding: 20px; border-radius: 5px; text-align: center; margin: 20px 0;">
           <span style="font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #3B82F6;">${verificationToken}</span>
         </div>
-        <p>Este código expirará en 1 hora.</p>
         <p>Si no creaste esta cuenta, puedes ignorar este mensaje.</p>
         <p>Saludos,<br>
         <a href="https://www.linkedin.com/in/leonel-bravo/" style="color: #3B82F6; text-decoration: none;">Leonel B. Bravo</a></p>
