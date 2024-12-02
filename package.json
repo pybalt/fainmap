@@ -19,7 +19,8 @@
     "react-dom": "^18.3.1",
     "react-draggable": "^4.4.6",
     "react-google-recaptcha": "^3.1.0",
-    "react-router-dom": "^6.20.1"
+    "react-router-dom": "^6.20.1",
+    "resend": "^4.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
