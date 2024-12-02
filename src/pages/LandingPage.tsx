@@ -83,7 +83,8 @@ const LandingPage = (): JSX.Element => {
               studentid: legajo,
               email: email,
               firstname: firstName.charAt(0).toUpperCase() + firstName.slice(1),
-              lastname: lastName.charAt(0).toUpperCase() + lastName.slice(1)
+              lastname: lastName.charAt(0).toUpperCase() + lastName.slice(1),
+              email_verified: false
             }
           ])
           .select()
@@ -98,6 +99,10 @@ const LandingPage = (): JSX.Element => {
           }
           throw new Error('Error en el servidor. Por favor, intente más tarde.');
         }
+
+        await supabase.auth.signInWithOtp({
+          email: email
+        });
 
         localStorage.setItem('userLegajo', legajo);
         navigate('/dashboard');
