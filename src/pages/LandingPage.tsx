@@ -50,7 +50,7 @@ const LandingPage = (): JSX.Element => {
       if (isLogin) {
         // Verificar si el usuario existe
         const { error } = await supabase
-          .from('users')
+          .from('users_enhanced')
           .select('*')
           .eq('studentid', legajo)
           .single();
@@ -77,7 +77,7 @@ const LandingPage = (): JSX.Element => {
         const lastName = nameParts[1] || '';
 
         const { error: insertError } = await supabase
-          .from('users')
+          .from('users_enhanced')
           .insert([
             {
               studentid: legajo,
