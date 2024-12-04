@@ -152,7 +152,7 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
 
   // Si no hay caché, cargar de la base de datos
   const { data: careerSubjectsData, error: careerSubjectsError } = await supabase
-    .from('careersubjects')
+    .from('careersubjects_enhanced')
     .select(`
       subjectid,
       suggested_year,
@@ -172,7 +172,7 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
   }
 
   const { data: prerequisitesData, error: prerequisitesError } = await supabase
-    .from('prerequisites')
+    .from('prerequisites_enhanced')
     .select('*');
 
   if (prerequisitesError) throw prerequisitesError;
@@ -302,7 +302,7 @@ const Dashboard = (): JSX.Element => {
         // Si no hay caché o expiró, cargar desde la base de datos
         setLoadingStatus('Cargando carreras desde la base de datos...');
         const { data, error } = await supabase
-          .from('careers')
+          .from('careers_enhanced')
           .select('*');
 
         if (error) throw error;
@@ -350,7 +350,7 @@ const Dashboard = (): JSX.Element => {
         const [layoutData, approvedResponse] = await Promise.all([
           loadSubjectsWithPrerequisites(selectedCareer),
           supabase
-            .from('approvedsubjects')
+            .from('approvedsubjects_enhanced')
             .select('*')
             .eq('studentid', studentid)
         ]);
@@ -406,7 +406,7 @@ const Dashboard = (): JSX.Element => {
       // Actualizar en Supabase
       if (status === 'approved') {
         await supabase
-          .from('approvedsubjects')
+          .from('approvedsubjects_enhanced')
           .upsert({
             studentid,
             subjectid: subjectId,
@@ -416,7 +416,7 @@ const Dashboard = (): JSX.Element => {
       } else {
         // Si no está aprobada, eliminar de approvedsubjects
         await supabase
-          .from('approvedsubjects')
+          .from('approvedsubjects_enhanced')
           .delete()
           .eq('studentid', studentid)
           .eq('subjectid', subjectId);
@@ -459,7 +459,7 @@ const Dashboard = (): JSX.Element => {
     try {
       // Actualizar en Supabase
       await supabase
-        .from('approvedsubjects')
+        .from('approvedsubjects_enhanced')
         .upsert({
           studentid,
           subjectid: subjectId,
