@@ -16,7 +16,6 @@ const LandingPage = (): JSX.Element => {
   const [email, setEmail] = useState('');
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const userLegajo = localStorage.getItem('userLegajo');

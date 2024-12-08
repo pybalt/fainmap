@@ -166,7 +166,7 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
   }
 
   const subjects = await response.json();
-  const mappedSubjects = subjects.map(subject => ({
+  const mappedSubjects = subjects.map((subject: CareerSubject) => ({
     ...subject,
     status: 'pending' as SubjectNodeType['status'],
     position: { x: 0, y: 0 }
@@ -345,7 +345,7 @@ const Dashboard = (): JSX.Element => {
 
         const subjectsWithStatus = layoutData.subjects.map(subject => ({
           ...subject,
-          status: approvedSubjects.find(a => a.subjectid === subject.subjectid)
+          status: approvedSubjects.find((a: { subjectid: number }) => a.subjectid === subject.subjectid)
             ? 'approved' as const
             : 'pending' as const
         }));
