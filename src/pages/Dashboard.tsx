@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import type { Career, SubjectNode as SubjectNodeType, UserProgress, YearLabel, QuarterLabel } from '../types/database';
 import type { Theme } from '../types/theme';
 import Header from '../components/Header';
@@ -9,6 +8,7 @@ import SubjectMap from '../components/SubjectMap';
 
 // Constante para el tiempo de vencimiento de las carreras (3 semanas)
 const CAREERS_CACHE_DURATION = 1000 * 60 * 60 * 24 * 21; // 21 días
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 
 interface CriticalityScore {
   subjectId: number;
@@ -150,52 +150,21 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
     return calculateInitialPositions(parsedSubjects);
   }
 
-  // Si no hay caché, cargar de la base de datos
-  const { data: careerSubjectsData, error: careerSubjectsError } = await supabase
-    .from('careersubjects')
-    .select(`
-      subjectid,
-      suggested_year,
-      suggested_quarter,
-      subjects (
-        subjectid,
-        code,
-        name
-      )
-    `)
-    .eq('careerid', careerid) as { data: CareerSubject[] | null, error: any };
+  // Si no hay caché, cargar desde el backend
+  const response = await fetch(`${BACKEND_URL}/api/careers/${careerid}/subjects`, {
+    credentials: 'include'
+  });
 
-  if (careerSubjectsError) throw careerSubjectsError;
-  if (!careerSubjectsData || careerSubjectsData.length === 0) {
-    console.log('No se encontraron materias para la carrera');
-    return { subjects: [], yearLabels: [], quarterLabels: [] };
+  if (!response.ok) {
+    throw new Error('Error al cargar materias');
   }
 
-  const { data: prerequisitesData, error: prerequisitesError } = await supabase
-    .from('prerequisites')
-    .select('*');
-
-  if (prerequisitesError) throw prerequisitesError;
-
-  // Mapear los datos
-  const mappedSubjects = careerSubjectsData.map(cs => {
-    if (!cs.subjects) {
-      console.error('Materia sin datos:', cs);
-      return null;
-    }
-    return {
-      subjectid: cs.subjectid,
-      code: cs.subjects.code,
-      name: cs.subjects.name,
-      status: 'pending' as SubjectNodeType['status'],
-      prerequisites: prerequisitesData
-        ?.filter(p => p.subjectid === cs.subjectid)
-        .map(p => p.prerequisiteid) || [],
-      suggested_year: cs.suggested_year,
-      suggested_quarter: cs.suggested_quarter,
-      position: { x: 0, y: 0 }
-    } as SubjectNodeType;
-  }).filter((subject): subject is SubjectNodeType => subject !== null);
+  const subjects = await response.json();
+  const mappedSubjects = subjects.map(subject => ({
+    ...subject,
+    status: 'pending' as SubjectNodeType['status'],
+    position: { x: 0, y: 0 }
+  }));
 
   // Guardar en localStorage
   localStorage.setItem(cachedSubjectsKey, JSON.stringify(mappedSubjects));
@@ -299,14 +268,15 @@ const Dashboard = (): JSX.Element => {
           }
         }
 
-        // Si no hay caché o expiró, cargar desde la base de datos
-        setLoadingStatus('Cargando carreras desde la base de datos...');
-        const { data, error } = await supabase
-          .from('careers')
-          .select('*');
+        // Si no hay caché o expiró, cargar desde el backend
+        setLoadingStatus('Cargando carreras desde el servidor...');
+        const response = await fetch(`${BACKEND_URL}/api/careers`, {
+          credentials: 'include'
+        });
 
-        if (error) throw error;
+        if (!response.ok) throw new Error('Error al cargar carreras');
 
+        const data = await response.json();
         console.log('Carreras cargadas:', data);
         setCareers(data || []);
 
@@ -346,20 +316,23 @@ const Dashboard = (): JSX.Element => {
       try {
         setLoadingStatus('Cargando materias...');
         
-        // Cargar materias desde la base de datos
+        // Cargar materias desde el backend
         const [layoutData, approvedResponse] = await Promise.all([
           loadSubjectsWithPrerequisites(selectedCareer),
-          supabase
-            .from('approvedsubjects')
-            .select('*')
-            .eq('studentid', studentid)
+          fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
+            credentials: 'include'
+          })
         ]);
 
-        if (approvedResponse.error) throw approvedResponse.error;
+        if (!approvedResponse.ok) {
+          throw new Error('Error al cargar materias aprobadas');
+        }
+
+        const approvedSubjects = await approvedResponse.json();
 
         const subjectsWithStatus = layoutData.subjects.map(subject => ({
           ...subject,
-          status: approvedResponse.data.find(a => a.subjectid === subject.subjectid)
+          status: approvedSubjects.find(a => a.subjectid === subject.subjectid)
             ? 'approved' as const
             : 'pending' as const
         }));
@@ -392,7 +365,7 @@ const Dashboard = (): JSX.Element => {
     };
 
     loadSubjects();
-  }, [selectedCareer]);
+  }, [selectedCareer, studentid]);
 
   const handleCareerChange = (careerid: number) => {
     setSelectedCareer(careerid);
@@ -403,23 +376,20 @@ const Dashboard = (): JSX.Element => {
     if (!studentid || !selectedCareer) return;
 
     try {
-      // Actualizar en Supabase
       if (status === 'approved') {
-        await supabase
-          .from('approvedsubjects')
-          .upsert({
-            studentid,
-            subjectid: subjectId,
-            grade: null,
-            approvaldate: new Date().toISOString().split('T')[0]
-          });
+        await fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subjectid: subjectId }),
+          credentials: 'include'
+        });
       } else {
-        // Si no está aprobada, eliminar de approvedsubjects
-        await supabase
-          .from('approvedsubjects')
-          .delete()
-          .eq('studentid', studentid)
-          .eq('subjectid', subjectId);
+        await fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subjectid: subjectId }),
+          credentials: 'include'
+        });
       }
 
       // Actualizar estado local
@@ -457,15 +427,12 @@ const Dashboard = (): JSX.Element => {
     if (!studentid || !selectedCareer) return;
 
     try {
-      // Actualizar en Supabase
-      await supabase
-        .from('approvedsubjects')
-        .upsert({
-          studentid,
-          subjectid: subjectId,
-          grade,
-          approvaldate: new Date().toISOString().split('T')[0]
-        });
+      await fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjectid: subjectId, grade }),
+        credentials: 'include'
+      });
 
       // Actualizar estado local
       const updatedSubjects = subjects.map(subject =>

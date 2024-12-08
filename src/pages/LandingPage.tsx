@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 
 declare global {
   interface Window {
@@ -9,18 +10,17 @@ declare global {
 }
 
 const LandingPage = (): JSX.Element => {
-  const [isLogin, setIsLogin] = useState(true);
+  const navigate = useNavigate();
   const [legajo, setLegajo] = useState('');
   const [confirmLegajo, setConfirmLegajo] = useState('');
   const [email, setEmail] = useState('');
+  const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
 
-  // Verificar si el usuario ya está logueado
   useEffect(() => {
     const userLegajo = localStorage.getItem('userLegajo');
     if (userLegajo) {
-      console.log('Usuario ya logueado, redirigiendo a dashboard');
       navigate('/dashboard');
     }
   }, [navigate]);
@@ -49,15 +49,16 @@ const LandingPage = (): JSX.Element => {
 
       if (isLogin) {
         // Verificar si el usuario existe
-        const { error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('studentid', legajo)
-          .single();
+        const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ legajo, recaptchaToken: token }),
+          credentials: 'include'
+        });
 
-        if (error) {
-          console.error('Error al buscar usuario:', error);
-          throw new Error('Credenciales inválidas');
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error.message);
         }
 
         localStorage.setItem('userLegajo', legajo);
@@ -71,32 +72,17 @@ const LandingPage = (): JSX.Element => {
           throw new Error('Los códigos de legajo no coinciden');
         }
 
-        // Intentar crear el usuario
-        const nameParts = email.split('@')[0].split('.');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts[1] || '';
+        // Registrar nuevo usuario
+        const response = await fetch(`${BACKEND_URL}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ legajo, email, recaptchaToken: token }),
+          credentials: 'include'
+        });
 
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert([
-            {
-              studentid: legajo,
-              email: email,
-              firstname: firstName.charAt(0).toUpperCase() + firstName.slice(1),
-              lastname: lastName.charAt(0).toUpperCase() + lastName.slice(1)
-            }
-          ])
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error('Error al insertar usuario:', insertError);
-          // Si es un error de validación de la DB o cualquier otro error
-          if (insertError.code === '23514' || // check violation
-              insertError.code === '23505') { // unique violation
-            throw new Error('Credenciales inválidas');
-          }
-          throw new Error('Error en el servidor. Por favor, intente más tarde.');
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error.message);
         }
 
         localStorage.setItem('userLegajo', legajo);
