@@ -39,55 +39,46 @@ const LandingPage = (): JSX.Element => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+    const body = isLogin ? { legajo } : { legajo, email };
 
-    try {
-      const token = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
-      
-      if (!token) {
-        throw new Error('Error de verificación de seguridad');
-      }
-
-      if (isLogin) {
-        // Verificar si el usuario existe
-        const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+    const postApi = async () => {
+      try {
+        const token = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
+        if (!token) {
+          throw new Error('Error de verificación de seguridad');
+        }
+        const response = await fetch(`${BACKEND_URL}${endpoint}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ legajo, recaptchaToken: token }),
+          headers: { 'Content-Type': 'application/json', 'x-recaptcha-token': token },
+          body: JSON.stringify(body),
           credentials: 'include'
         });
+        return response;
+      }
+      catch(error) {
+        throw error;
+      }      
+    }
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error.message);
-        }
-
-        localStorage.setItem('userLegajo', legajo);
-        navigate('/dashboard');
-      } else {
+    try {
+      if (!isLogin) {
         if (!email.endsWith('@uade.edu.ar')) {
           throw new Error('Credenciales inválidas');
         }
-
+    
         if (legajo !== confirmLegajo) {
           throw new Error('Los códigos de legajo no coinciden');
         }
-
-        // Registrar nuevo usuario
-        const response = await fetch(`${BACKEND_URL}/api/auth/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ legajo, email, recaptchaToken: token }),
-          credentials: 'include'
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error.message);
-        }
-
-        localStorage.setItem('userLegajo', legajo);
-        navigate('/dashboard');
       }
+      const response = await postApi();
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error.message);
+      }
+      localStorage.setItem('userLegajo', legajo);
+      navigate('/dashboard');
+
     } catch (error) {
       console.error('Error completo:', error);
       alert(error instanceof Error ? error.message : 'Error en la operación');

@@ -32,6 +32,12 @@ interface LayoutData {
   quarterLabels: QuarterLabel[];
 }
 
+declare global {
+  interface Window {
+    grecaptcha: any;
+  }
+}
+
 const CARD_WIDTH = window.innerWidth < 768 ? 140 : 180;
 const CARD_HEIGHT = window.innerWidth < 768 ? 80 : 100;
 const MARGIN_X = window.innerWidth < 768 ? 80 : 150;
@@ -270,8 +276,12 @@ const Dashboard = (): JSX.Element => {
 
         // Si no hay caché o expiró, cargar desde el backend
         setLoadingStatus('Cargando carreras desde el servidor...');
+        const recaptchaToken = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
         const response = await fetch(`${BACKEND_URL}/api/careers`, {
-          credentials: 'include'
+          credentials: 'include',
+          headers: {
+            'x-recaptcha-token': recaptchaToken
+          }
         });
 
         if (!response.ok) throw new Error('Error al cargar carreras');
@@ -315,12 +325,15 @@ const Dashboard = (): JSX.Element => {
 
       try {
         setLoadingStatus('Cargando materias...');
-        
+        const recaptchaToken = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
         // Cargar materias desde el backend
         const [layoutData, approvedResponse] = await Promise.all([
           loadSubjectsWithPrerequisites(selectedCareer),
           fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
-            credentials: 'include'
+            credentials: 'include',
+            headers: {
+              'x-recaptcha-token': recaptchaToken
+            }
           })
         ]);
 
@@ -374,19 +387,19 @@ const Dashboard = (): JSX.Element => {
 
   const handleSubjectStatusChange = async (subjectId: number, status: 'pending' | 'in_progress' | 'approved') => {
     if (!studentid || !selectedCareer) return;
-
+    const recaptchaToken = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
     try {
       if (status === 'approved') {
         await fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-recaptcha-token': recaptchaToken },
           body: JSON.stringify({ subjectid: subjectId }),
           credentials: 'include'
         });
       } else {
         await fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-recaptcha-token': recaptchaToken },
           body: JSON.stringify({ subjectid: subjectId }),
           credentials: 'include'
         });
@@ -425,11 +438,11 @@ const Dashboard = (): JSX.Element => {
 
   const handleSubjectGradeChange = async (subjectId: number, grade: number) => {
     if (!studentid || !selectedCareer) return;
-
+    const recaptchaToken = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
     try {
       await fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-recaptcha-token': recaptchaToken },
         body: JSON.stringify({ subjectid: subjectId, grade }),
         credentials: 'include'
       });
