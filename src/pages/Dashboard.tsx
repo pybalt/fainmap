@@ -387,8 +387,34 @@ const Dashboard = (): JSX.Element => {
 
   const handleSubjectStatusChange = async (subjectId: number, status: 'pending' | 'in_progress' | 'approved') => {
     if (!studentid || !selectedCareer) return;
-    const recaptchaToken = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
+
+    // Actualizar estado local inmediatamente
+    const updatedSubjects = subjects.map(subject =>
+      subject.subjectid === subjectId
+        ? { ...subject, status, grade: undefined }
+        : subject
+    );
+    setSubjects(updatedSubjects);
+
+    // Actualizar localStorage inmediatamente
+    const progress: UserProgress = {
+      studentid,
+      careerid: selectedCareer,
+      subjects: updatedSubjects.reduce((acc, subject) => ({
+        ...acc,
+        [subject.subjectid]: {
+          status: subject.status,
+          grade: subject.grade,
+          position: subject.position
+        }
+      }), {}),
+      lastUpdated: new Date().toISOString()
+    };
+    localStorage.setItem(`progress_${studentid}_${selectedCareer}`, JSON.stringify(progress));
+
     try {
+      const recaptchaToken = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
+      
       if (status === 'approved') {
         await fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
           method: 'POST',
@@ -405,19 +431,24 @@ const Dashboard = (): JSX.Element => {
         });
       }
 
-      // Actualizar estado local
-      const updatedSubjects = subjects.map(subject =>
+      console.log(`Materia ${subjectId} actualizada a estado: ${status}`);
+    } catch (error) {
+      console.error('Error al actualizar estado:', error);
+      
+      // Revertir cambios en caso de error
+      const previousStatus = subjects.find(s => s.subjectid === subjectId)?.status || 'pending';
+      const revertedSubjects = subjects.map(subject =>
         subject.subjectid === subjectId
-          ? { ...subject, status, grade: undefined }
+          ? { ...subject, status: previousStatus }
           : subject
       );
-      setSubjects(updatedSubjects);
-
-      // Actualizar localStorage
-      const progress: UserProgress = {
+      setSubjects(revertedSubjects);
+      
+      // Revertir localStorage
+      const revertedProgress: UserProgress = {
         studentid,
         careerid: selectedCareer,
-        subjects: updatedSubjects.reduce((acc, subject) => ({
+        subjects: revertedSubjects.reduce((acc, subject) => ({
           ...acc,
           [subject.subjectid]: {
             status: subject.status,
@@ -427,19 +458,41 @@ const Dashboard = (): JSX.Element => {
         }), {}),
         lastUpdated: new Date().toISOString()
       };
-      localStorage.setItem(`progress_${studentid}_${selectedCareer}`, JSON.stringify(progress));
-
-      console.log(`Materia ${subjectId} actualizada a estado: ${status}`);
-    } catch (error) {
-      console.error('Error al actualizar estado:', error);
+      localStorage.setItem(`progress_${studentid}_${selectedCareer}`, JSON.stringify(revertedProgress));
+      
       alert('Error al actualizar el estado de la materia');
     }
   };
 
   const handleSubjectGradeChange = async (subjectId: number, grade: number) => {
     if (!studentid || !selectedCareer) return;
-    const recaptchaToken = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
+
+    // Actualizar estado local inmediatamente
+    const updatedSubjects = subjects.map(subject =>
+      subject.subjectid === subjectId
+        ? { ...subject, grade }
+        : subject
+    );
+    setSubjects(updatedSubjects);
+
+    // Actualizar localStorage inmediatamente
+    const progress: UserProgress = {
+      studentid,
+      careerid: selectedCareer,
+      subjects: updatedSubjects.reduce((acc, subject) => ({
+        ...acc,
+        [subject.subjectid]: {
+          status: subject.status,
+          grade: subject.grade,
+          position: subject.position
+        }
+      }), {}),
+      lastUpdated: new Date().toISOString()
+    };
+    localStorage.setItem(`progress_${studentid}_${selectedCareer}`, JSON.stringify(progress));
+
     try {
+      const recaptchaToken = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
       await fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-recaptcha-token': recaptchaToken },
@@ -447,19 +500,24 @@ const Dashboard = (): JSX.Element => {
         credentials: 'include'
       });
 
-      // Actualizar estado local
-      const updatedSubjects = subjects.map(subject =>
+      console.log(`Nota actualizada para materia ${subjectId}: ${grade}`);
+    } catch (error) {
+      console.error('Error al actualizar nota:', error);
+      
+      // Revertir cambios en caso de error
+      const previousGrade = subjects.find(s => s.subjectid === subjectId)?.grade;
+      const revertedSubjects = subjects.map(subject =>
         subject.subjectid === subjectId
-          ? { ...subject, grade }
+          ? { ...subject, grade: previousGrade }
           : subject
       );
-      setSubjects(updatedSubjects);
-
-      // Actualizar localStorage
-      const progress: UserProgress = {
+      setSubjects(revertedSubjects);
+      
+      // Revertir localStorage
+      const revertedProgress: UserProgress = {
         studentid,
         careerid: selectedCareer,
-        subjects: updatedSubjects.reduce((acc, subject) => ({
+        subjects: revertedSubjects.reduce((acc, subject) => ({
           ...acc,
           [subject.subjectid]: {
             status: subject.status,
@@ -469,11 +527,8 @@ const Dashboard = (): JSX.Element => {
         }), {}),
         lastUpdated: new Date().toISOString()
       };
-      localStorage.setItem(`progress_${studentid}_${selectedCareer}`, JSON.stringify(progress));
-
-      console.log(`Nota actualizada para materia ${subjectId}: ${grade}`);
-    } catch (error) {
-      console.error('Error al actualizar nota:', error);
+      localStorage.setItem(`progress_${studentid}_${selectedCareer}`, JSON.stringify(revertedProgress));
+      
       alert('Error al guardar la nota');
     }
   };
