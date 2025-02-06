@@ -360,7 +360,7 @@ const Dashboard = (): JSX.Element => {
           careerid: selectedCareer,
           subjects: subjectsWithStatus.reduce((acc, subject) => ({
             ...acc,
-            [subject.subjectid]: {
+            [`${selectedCareer}_${subject.subjectid}`]: {
               status: subject.status,
               grade: subject.grade,
               position: subject.position
@@ -405,7 +405,7 @@ const Dashboard = (): JSX.Element => {
       careerid: selectedCareer,
       subjects: updatedSubjects.reduce((acc, subject) => ({
         ...acc,
-        [subject.subjectid]: {
+        [`${selectedCareer}_${subject.subjectid}`]: {
           status: subject.status,
           grade: subject.grade,
           position: subject.position
@@ -424,19 +424,25 @@ const Dashboard = (): JSX.Element => {
           await fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-recaptcha-token': recaptchaToken },
-            body: JSON.stringify({ subjectid: subjectId }),
+            body: JSON.stringify({ 
+              subjectid: subjectId,
+              careerid: selectedCareer 
+            }),
             credentials: 'include'
           });
         } else {
           await fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json', 'x-recaptcha-token': recaptchaToken },
-            body: JSON.stringify({ subjectid: subjectId }),
+            body: JSON.stringify({ 
+              subjectid: subjectId,
+              careerid: selectedCareer 
+            }),
             credentials: 'include'
           });
         }
 
-        console.log(`Materia ${subjectId} actualizada a estado: ${status}`);
+        console.log(`Materia ${subjectId} de carrera ${selectedCareer} actualizada a estado: ${status}`);
       } catch (error) {
         console.error('Error al actualizar estado:', error);
         
@@ -454,7 +460,7 @@ const Dashboard = (): JSX.Element => {
           careerid: selectedCareer,
           subjects: revertedSubjects.reduce((acc, subject) => ({
             ...acc,
-            [subject.subjectid]: {
+            [`${selectedCareer}_${subject.subjectid}`]: {
               status: subject.status,
               grade: subject.grade,
               position: subject.position
@@ -489,7 +495,7 @@ const Dashboard = (): JSX.Element => {
       careerid: selectedCareer,
       subjects: updatedSubjects.reduce((acc, subject) => ({
         ...acc,
-        [subject.subjectid]: {
+        [`${selectedCareer}_${subject.subjectid}`]: {
           status: subject.status,
           grade: subject.grade,
           position: subject.position
@@ -528,7 +534,7 @@ const Dashboard = (): JSX.Element => {
           careerid: selectedCareer,
           subjects: revertedSubjects.reduce((acc, subject) => ({
             ...acc,
-            [subject.subjectid]: {
+            [`${selectedCareer}_${subject.subjectid}`]: {
               status: subject.status,
               grade: subject.grade,
               position: subject.position
@@ -555,7 +561,7 @@ const Dashboard = (): JSX.Element => {
         careerid,
         subjects: subjects.reduce((acc, subject) => ({
           ...acc,
-          [subject.subjectid]: {
+          [`${careerid}_${subject.subjectid}`]: {
             status: subject.status,
             grade: subject.grade,
             position: subject.position
