@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 
 declare global {
   interface Window {
@@ -9,18 +10,16 @@ declare global {
 }
 
 const LandingPage = (): JSX.Element => {
-  const [isLogin, setIsLogin] = useState(true);
+  const navigate = useNavigate();
   const [legajo, setLegajo] = useState('');
   const [confirmLegajo, setConfirmLegajo] = useState('');
   const [email, setEmail] = useState('');
+  const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
-  // Verificar si el usuario ya está logueado
   useEffect(() => {
     const userLegajo = localStorage.getItem('userLegajo');
     if (userLegajo) {
-      console.log('Usuario ya logueado, redirigiendo a dashboard');
       navigate('/dashboard');
     }
   }, [navigate]);
@@ -39,69 +38,46 @@ const LandingPage = (): JSX.Element => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+    const body = isLogin ? { legajo } : { legajo, email };
+
+    const postApi = async () => {
+      try {
+        const token = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
+        if (!token) {
+          throw new Error('Error de verificación de seguridad');
+        }
+        const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-recaptcha-token': token },
+          body: JSON.stringify(body),
+          credentials: 'include'
+        });
+        return response;
+      }
+      catch(error) {
+        throw error;
+      }      
+    }
 
     try {
-      const token = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
-      
-      if (!token) {
-        throw new Error('Error de verificación de seguridad');
-      }
-
-      if (isLogin) {
-        // Verificar si el usuario existe
-        const { error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('studentid', legajo)
-          .single();
-
-        if (error) {
-          console.error('Error al buscar usuario:', error);
-          throw new Error('Credenciales inválidas');
-        }
-
-        localStorage.setItem('userLegajo', legajo);
-        navigate('/dashboard');
-      } else {
+      if (!isLogin) {
         if (!email.endsWith('@uade.edu.ar')) {
           throw new Error('Credenciales inválidas');
         }
-
+    
         if (legajo !== confirmLegajo) {
           throw new Error('Los códigos de legajo no coinciden');
         }
-
-        // Intentar crear el usuario
-        const nameParts = email.split('@')[0].split('.');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts[1] || '';
-
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert([
-            {
-              studentid: legajo,
-              email: email,
-              firstname: firstName.charAt(0).toUpperCase() + firstName.slice(1),
-              lastname: lastName.charAt(0).toUpperCase() + lastName.slice(1)
-            }
-          ])
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error('Error al insertar usuario:', insertError);
-          // Si es un error de validación de la DB o cualquier otro error
-          if (insertError.code === '23514' || // check violation
-              insertError.code === '23505') { // unique violation
-            throw new Error('Credenciales inválidas');
-          }
-          throw new Error('Error en el servidor. Por favor, intente más tarde.');
-        }
-
-        localStorage.setItem('userLegajo', legajo);
-        navigate('/dashboard');
       }
+      const response = await postApi();
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error.message);
+      }
+      localStorage.setItem('userLegajo', legajo);
+      navigate('/dashboard');
+
     } catch (error) {
       console.error('Error completo:', error);
       alert(error instanceof Error ? error.message : 'Error en la operación');

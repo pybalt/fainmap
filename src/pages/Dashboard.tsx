@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import type { Career, SubjectNode as SubjectNodeType, UserProgress, YearLabel, QuarterLabel } from '../types/database';
 import type { Theme } from '../types/theme';
 import Header from '../components/Header';
@@ -9,6 +8,7 @@ import SubjectMap from '../components/SubjectMap';
 
 // Constante para el tiempo de vencimiento de las carreras (3 semanas)
 const CAREERS_CACHE_DURATION = 1000 * 60 * 60 * 24 * 21; // 21 días
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 
 interface CriticalityScore {
   subjectId: number;
@@ -30,6 +30,12 @@ interface LayoutData {
   subjects: SubjectNodeType[];
   yearLabels: YearLabel[];
   quarterLabels: QuarterLabel[];
+}
+
+declare global {
+  interface Window {
+    grecaptcha: any;
+  }
 }
 
 const CARD_WIDTH = window.innerWidth < 768 ? 140 : 180;
@@ -150,52 +156,21 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
     return calculateInitialPositions(parsedSubjects);
   }
 
-  // Si no hay caché, cargar de la base de datos
-  const { data: careerSubjectsData, error: careerSubjectsError } = await supabase
-    .from('careersubjects')
-    .select(`
-      subjectid,
-      suggested_year,
-      suggested_quarter,
-      subjects (
-        subjectid,
-        code,
-        name
-      )
-    `)
-    .eq('careerid', careerid) as { data: CareerSubject[] | null, error: any };
+  // Si no hay caché, cargar desde el backend
+  const response = await fetch(`${BACKEND_URL}/api/careers/${careerid}/subjects`, {
+    credentials: 'include'
+  });
 
-  if (careerSubjectsError) throw careerSubjectsError;
-  if (!careerSubjectsData || careerSubjectsData.length === 0) {
-    console.log('No se encontraron materias para la carrera');
-    return { subjects: [], yearLabels: [], quarterLabels: [] };
+  if (!response.ok) {
+    throw new Error('Error al cargar materias');
   }
 
-  const { data: prerequisitesData, error: prerequisitesError } = await supabase
-    .from('prerequisites')
-    .select('*');
-
-  if (prerequisitesError) throw prerequisitesError;
-
-  // Mapear los datos
-  const mappedSubjects = careerSubjectsData.map(cs => {
-    if (!cs.subjects) {
-      console.error('Materia sin datos:', cs);
-      return null;
-    }
-    return {
-      subjectid: cs.subjectid,
-      code: cs.subjects.code,
-      name: cs.subjects.name,
-      status: 'pending' as SubjectNodeType['status'],
-      prerequisites: prerequisitesData
-        ?.filter(p => p.subjectid === cs.subjectid)
-        .map(p => p.prerequisiteid) || [],
-      suggested_year: cs.suggested_year,
-      suggested_quarter: cs.suggested_quarter,
-      position: { x: 0, y: 0 }
-    } as SubjectNodeType;
-  }).filter((subject): subject is SubjectNodeType => subject !== null);
+  const subjects = await response.json();
+  const mappedSubjects = subjects.map((subject: CareerSubject) => ({
+    ...subject,
+    status: 'pending' as SubjectNodeType['status'],
+    position: { x: 0, y: 0 }
+  }));
 
   // Guardar en localStorage
   localStorage.setItem(cachedSubjectsKey, JSON.stringify(mappedSubjects));
@@ -299,14 +274,19 @@ const Dashboard = (): JSX.Element => {
           }
         }
 
-        // Si no hay caché o expiró, cargar desde la base de datos
-        setLoadingStatus('Cargando carreras desde la base de datos...');
-        const { data, error } = await supabase
-          .from('careers')
-          .select('*');
+        // Si no hay caché o expiró, cargar desde el backend
+        setLoadingStatus('Cargando carreras desde el servidor...');
+        const recaptchaToken = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
+        const response = await fetch(`${BACKEND_URL}/api/careers`, {
+          credentials: 'include',
+          headers: {
+            'x-recaptcha-token': recaptchaToken
+          }
+        });
 
-        if (error) throw error;
+        if (!response.ok) throw new Error('Error al cargar carreras');
 
+        const data = await response.json();
         console.log('Carreras cargadas:', data);
         setCareers(data || []);
 
@@ -345,21 +325,27 @@ const Dashboard = (): JSX.Element => {
 
       try {
         setLoadingStatus('Cargando materias...');
-        
-        // Cargar materias desde la base de datos
+        const recaptchaToken = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
+        // Cargar materias desde el backend
         const [layoutData, approvedResponse] = await Promise.all([
           loadSubjectsWithPrerequisites(selectedCareer),
-          supabase
-            .from('approvedsubjects')
-            .select('*')
-            .eq('studentid', studentid)
+          fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
+            credentials: 'include',
+            headers: {
+              'x-recaptcha-token': recaptchaToken
+            }
+          })
         ]);
 
-        if (approvedResponse.error) throw approvedResponse.error;
+        if (!approvedResponse.ok) {
+          throw new Error('Error al cargar materias aprobadas');
+        }
+
+        const approvedSubjects = await approvedResponse.json();
 
         const subjectsWithStatus = layoutData.subjects.map(subject => ({
           ...subject,
-          status: approvedResponse.data.find(a => a.subjectid === subject.subjectid)
+          status: approvedSubjects.find((a: { subjectid: number }) => a.subjectid === subject.subjectid)
             ? 'approved' as const
             : 'pending' as const
         }));
@@ -374,7 +360,7 @@ const Dashboard = (): JSX.Element => {
           careerid: selectedCareer,
           subjects: subjectsWithStatus.reduce((acc, subject) => ({
             ...acc,
-            [subject.subjectid]: {
+            [`${selectedCareer}_${subject.subjectid}`]: {
               status: subject.status,
               grade: subject.grade,
               position: subject.position
@@ -392,7 +378,7 @@ const Dashboard = (): JSX.Element => {
     };
 
     loadSubjects();
-  }, [selectedCareer]);
+  }, [selectedCareer, studentid]);
 
   const handleCareerChange = (careerid: number) => {
     setSelectedCareer(careerid);
@@ -402,100 +388,165 @@ const Dashboard = (): JSX.Element => {
   const handleSubjectStatusChange = async (subjectId: number, status: 'pending' | 'in_progress' | 'approved') => {
     if (!studentid || !selectedCareer) return;
 
-    try {
-      // Actualizar en Supabase
-      if (status === 'approved') {
-        await supabase
-          .from('approvedsubjects')
-          .upsert({
-            studentid,
-            subjectid: subjectId,
-            grade: null,
-            approvaldate: new Date().toISOString().split('T')[0]
+    // Guardar estado anterior para posible reversión
+    const previousStatus = subjects.find(s => s.subjectid === subjectId)?.status || 'pending';
+
+    // Actualizar estado local inmediatamente
+    const updatedSubjects = subjects.map(subject =>
+      subject.subjectid === subjectId
+        ? { ...subject, status, grade: undefined }
+        : subject
+    );
+    setSubjects(updatedSubjects);
+
+    // Actualizar localStorage inmediatamente
+    const progress: UserProgress = {
+      studentid,
+      careerid: selectedCareer,
+      subjects: updatedSubjects.reduce((acc, subject) => ({
+        ...acc,
+        [`${selectedCareer}_${subject.subjectid}`]: {
+          status: subject.status,
+          grade: subject.grade,
+          position: subject.position
+        }
+      }), {}),
+      lastUpdated: new Date().toISOString()
+    };
+    localStorage.setItem(`progress_${studentid}_${selectedCareer}`, JSON.stringify(progress));
+
+    // Sincronizar con el backend en segundo plano
+    (async () => {
+      try {
+        const recaptchaToken = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
+        
+        if (status === 'approved') {
+          await fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-recaptcha-token': recaptchaToken },
+            body: JSON.stringify({ 
+              subjectid: subjectId,
+              careerid: selectedCareer 
+            }),
+            credentials: 'include'
           });
-      } else {
-        // Si no está aprobada, eliminar de approvedsubjects
-        await supabase
-          .from('approvedsubjects')
-          .delete()
-          .eq('studentid', studentid)
-          .eq('subjectid', subjectId);
+        } else {
+          await fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json', 'x-recaptcha-token': recaptchaToken },
+            body: JSON.stringify({ 
+              subjectid: subjectId,
+              careerid: selectedCareer 
+            }),
+            credentials: 'include'
+          });
+        }
+
+        console.log(`Materia ${subjectId} de carrera ${selectedCareer} actualizada a estado: ${status}`);
+      } catch (error) {
+        console.error('Error al actualizar estado:', error);
+        
+        // Revertir cambios en caso de error
+        const revertedSubjects = subjects.map(subject =>
+          subject.subjectid === subjectId
+            ? { ...subject, status: previousStatus }
+            : subject
+        );
+        setSubjects(revertedSubjects);
+        
+        // Revertir localStorage
+        const revertedProgress: UserProgress = {
+          studentid,
+          careerid: selectedCareer,
+          subjects: revertedSubjects.reduce((acc, subject) => ({
+            ...acc,
+            [`${selectedCareer}_${subject.subjectid}`]: {
+              status: subject.status,
+              grade: subject.grade,
+              position: subject.position
+            }
+          }), {}),
+          lastUpdated: new Date().toISOString()
+        };
+        localStorage.setItem(`progress_${studentid}_${selectedCareer}`, JSON.stringify(revertedProgress));
+        
+        alert('Error al actualizar el estado de la materia');
       }
-
-      // Actualizar estado local
-      const updatedSubjects = subjects.map(subject =>
-        subject.subjectid === subjectId
-          ? { ...subject, status, grade: undefined }
-          : subject
-      );
-      setSubjects(updatedSubjects);
-
-      // Actualizar localStorage
-      const progress: UserProgress = {
-        studentid,
-        careerid: selectedCareer,
-        subjects: updatedSubjects.reduce((acc, subject) => ({
-          ...acc,
-          [subject.subjectid]: {
-            status: subject.status,
-            grade: subject.grade,
-            position: subject.position
-          }
-        }), {}),
-        lastUpdated: new Date().toISOString()
-      };
-      localStorage.setItem(`progress_${studentid}_${selectedCareer}`, JSON.stringify(progress));
-
-      console.log(`Materia ${subjectId} actualizada a estado: ${status}`);
-    } catch (error) {
-      console.error('Error al actualizar estado:', error);
-      alert('Error al actualizar el estado de la materia');
-    }
+    })();
   };
 
   const handleSubjectGradeChange = async (subjectId: number, grade: number) => {
     if (!studentid || !selectedCareer) return;
 
-    try {
-      // Actualizar en Supabase
-      await supabase
-        .from('approvedsubjects')
-        .upsert({
-          studentid,
-          subjectid: subjectId,
-          grade,
-          approvaldate: new Date().toISOString().split('T')[0]
+    // Guardar estado anterior para posible reversión
+    const previousGrade = subjects.find(s => s.subjectid === subjectId)?.grade;
+
+    // Actualizar estado local inmediatamente
+    const updatedSubjects = subjects.map(subject =>
+      subject.subjectid === subjectId
+        ? { ...subject, grade }
+        : subject
+    );
+    setSubjects(updatedSubjects);
+
+    // Actualizar localStorage inmediatamente
+    const progress: UserProgress = {
+      studentid,
+      careerid: selectedCareer,
+      subjects: updatedSubjects.reduce((acc, subject) => ({
+        ...acc,
+        [`${selectedCareer}_${subject.subjectid}`]: {
+          status: subject.status,
+          grade: subject.grade,
+          position: subject.position
+        }
+      }), {}),
+      lastUpdated: new Date().toISOString()
+    };
+    localStorage.setItem(`progress_${studentid}_${selectedCareer}`, JSON.stringify(progress));
+
+    // Sincronizar con el backend en segundo plano
+    (async () => {
+      try {
+        const recaptchaToken = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
+        await fetch(`${BACKEND_URL}/api/students/${studentid}/approved-subjects`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-recaptcha-token': recaptchaToken },
+          body: JSON.stringify({ subjectid: subjectId, grade }),
+          credentials: 'include'
         });
 
-      // Actualizar estado local
-      const updatedSubjects = subjects.map(subject =>
-        subject.subjectid === subjectId
-          ? { ...subject, grade }
-          : subject
-      );
-      setSubjects(updatedSubjects);
-
-      // Actualizar localStorage
-      const progress: UserProgress = {
-        studentid,
-        careerid: selectedCareer,
-        subjects: updatedSubjects.reduce((acc, subject) => ({
-          ...acc,
-          [subject.subjectid]: {
-            status: subject.status,
-            grade: subject.grade,
-            position: subject.position
-          }
-        }), {}),
-        lastUpdated: new Date().toISOString()
-      };
-      localStorage.setItem(`progress_${studentid}_${selectedCareer}`, JSON.stringify(progress));
-
-      console.log(`Nota actualizada para materia ${subjectId}: ${grade}`);
-    } catch (error) {
-      console.error('Error al actualizar nota:', error);
-      alert('Error al guardar la nota');
-    }
+        console.log(`Nota actualizada para materia ${subjectId}: ${grade}`);
+      } catch (error) {
+        console.error('Error al actualizar nota:', error);
+        
+        // Revertir cambios en caso de error
+        const revertedSubjects = subjects.map(subject =>
+          subject.subjectid === subjectId
+            ? { ...subject, grade: previousGrade }
+            : subject
+        );
+        setSubjects(revertedSubjects);
+        
+        // Revertir localStorage
+        const revertedProgress: UserProgress = {
+          studentid,
+          careerid: selectedCareer,
+          subjects: revertedSubjects.reduce((acc, subject) => ({
+            ...acc,
+            [`${selectedCareer}_${subject.subjectid}`]: {
+              status: subject.status,
+              grade: subject.grade,
+              position: subject.position
+            }
+          }), {}),
+          lastUpdated: new Date().toISOString()
+        };
+        localStorage.setItem(`progress_${studentid}_${selectedCareer}`, JSON.stringify(revertedProgress));
+        
+        alert('Error al guardar la nota');
+      }
+    })();
   };
 
   // Función debounced para guardar en localStorage
@@ -510,7 +561,7 @@ const Dashboard = (): JSX.Element => {
         careerid,
         subjects: subjects.reduce((acc, subject) => ({
           ...acc,
-          [subject.subjectid]: {
+          [`${careerid}_${subject.subjectid}`]: {
             status: subject.status,
             grade: subject.grade,
             position: subject.position

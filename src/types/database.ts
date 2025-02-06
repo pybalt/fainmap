@@ -80,3 +80,11 @@ export interface CareerSubject {
     name: string;
   };
 }
+
+export interface ApprovedSubject {
+  studentid: string;
+  subjectid: number;
+  careerid: number;
+  grade?: number;
+  approvaldate: string;
+}
