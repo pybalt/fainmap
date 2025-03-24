@@ -147,7 +147,14 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
     const token = localStorage.getItem('token');
     
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-    const response = await fetch(`${apiUrl}/careers/${careerid}/subjects-with-prerequisites`, {
+    
+    // Asegurarse de que estamos usando la ruta con /api/ prefix
+    const careersUrl = apiUrl.endsWith('/api') ? 
+      `${apiUrl}/careers` : 
+      `${apiUrl}/api/careers`;
+    
+    console.log('Cargando carreras desde:', careersUrl);
+    const response = await fetch(careersUrl, {
       headers: {
         'Authorization': token ? `Bearer ${token}` : '',
       }
@@ -314,8 +321,12 @@ const Dashboard = (): JSX.Element => {
         apiUrl = 'http://localhost:3000/api';
       }
       
-      console.log('Cargando carreras desde:', `${apiUrl}/careers`);
-      const response = await fetch(`${apiUrl}/careers`, {
+      // Asegurarse de que estamos usando la ruta con /api/ prefix
+      const careersUrl = apiUrl.endsWith('/api') ? 
+        `${apiUrl}/careers` : 
+        `${apiUrl}/api/careers`;
+      
+      const response = await fetch(careersUrl, {
         headers: {
           'Authorization': token ? `Bearer ${token}` : '',
         }
