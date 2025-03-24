@@ -50,23 +50,51 @@ const LandingPage = (): JSX.Element => {
 
       if (isLogin) {
         // Usar endpoint de login
-        const response = await fetch(`${apiUrl}/auth/login`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Recaptcha-Token': token,
-          },
-          body: JSON.stringify({ legajo }),
-          credentials: 'include',
-        });
+        const loginUrl = apiUrl.includes('/api') ? 
+          `${apiUrl}/auth/login` : 
+          `${apiUrl}/api/auth/login`;
+        
+        console.log('Iniciando sesión en:', loginUrl);
+        try {
+          const response = await fetch(loginUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Recaptcha-Token': token,
+            },
+            body: JSON.stringify({ legajo }),
+            credentials: 'include',
+          });
 
-        if (!response.ok) {
+          console.log('Respuesta del servidor:', response.status, response.statusText);
+          
+          if (!response.ok) {
+            let errorMessage = `Error ${response.status}: ${response.statusText}`;
+            try {
+              // Intentar extraer el mensaje de error del JSON
+              const contentType = response.headers.get('content-type');
+              if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                errorMessage = data.error?.message || errorMessage;
+              } else {
+                // Si no es JSON, intentar leer como texto
+                const text = await response.text();
+                console.error('Respuesta no JSON:', text);
+              }
+            } catch (jsonError) {
+              console.error('Error al parsear respuesta:', jsonError);
+            }
+            throw new Error(errorMessage);
+          }
+
+          // Asegurarse de que hay una respuesta y es válida
           const data = await response.json();
-          throw new Error(data.error?.message || 'Error al iniciar sesión');
+          localStorage.setItem('userLegajo', legajo);
+          navigate('/dashboard');
+        } catch (error) {
+          console.error('Error completo en login:', error);
+          throw error; // Re-lanzar para que lo capture el catch externo
         }
-
-        localStorage.setItem('userLegajo', legajo);
-        navigate('/dashboard');
       } else {
         if (!email.endsWith('@uade.edu.ar')) {
           throw new Error('Credenciales inválidas');
@@ -77,23 +105,51 @@ const LandingPage = (): JSX.Element => {
         }
 
         // Usar endpoint de registro
-        const response = await fetch(`${apiUrl}/auth/register`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Recaptcha-Token': token,
-          },
-          body: JSON.stringify({ legajo, email }),
-          credentials: 'include',
-        });
+        const registerUrl = apiUrl.includes('/api') ? 
+          `${apiUrl}/auth/register` : 
+          `${apiUrl}/api/auth/register`;
+        
+        console.log('Registrando en:', registerUrl);
+        try {
+          const response = await fetch(registerUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Recaptcha-Token': token,
+            },
+            body: JSON.stringify({ legajo, email }),
+            credentials: 'include',
+          });
 
-        if (!response.ok) {
+          console.log('Respuesta del servidor:', response.status, response.statusText);
+          
+          if (!response.ok) {
+            let errorMessage = `Error ${response.status}: ${response.statusText}`;
+            try {
+              // Intentar extraer el mensaje de error del JSON
+              const contentType = response.headers.get('content-type');
+              if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                errorMessage = data.error?.message || errorMessage;
+              } else {
+                // Si no es JSON, intentar leer como texto
+                const text = await response.text();
+                console.error('Respuesta no JSON:', text);
+              }
+            } catch (jsonError) {
+              console.error('Error al parsear respuesta:', jsonError);
+            }
+            throw new Error(errorMessage);
+          }
+
+          // Asegurarse de que hay una respuesta y es válida
           const data = await response.json();
-          throw new Error(data.error?.message || 'Error al registrarse');
+          localStorage.setItem('userLegajo', legajo);
+          navigate('/dashboard');
+        } catch (error) {
+          console.error('Error completo en registro:', error);
+          throw error; // Re-lanzar para que lo capture el catch externo
         }
-
-        localStorage.setItem('userLegajo', legajo);
-        navigate('/dashboard');
       }
     } catch (error) {
       console.error('Error completo:', error);
