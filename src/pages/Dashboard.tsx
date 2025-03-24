@@ -79,17 +79,33 @@ const calculateInitialPositions = (subjects: SubjectNodeType[]): LayoutData => {
   console.log('Calculando posiciones iniciales para', subjects.length, 'materias');
   
   const maxYear = Math.max(...subjects.map(s => s.suggested_year || 1));
-  const maxQuarter = Math.max(...subjects.map(s => s.suggested_quarter || 1));
   
   const yearLabels: YearLabel[] = [];
   const quarterLabels: QuarterLabel[] = [];
+  
+  // Calcular el máximo cuatrimestre para cada año individualmente
+  const maxQuarterByYear = new Map<number, number>();
+  
+  subjects.forEach(subject => {
+    const year = subject.suggested_year || 1;
+    const quarter = subject.suggested_quarter || 1;
+    
+    // Actualizar el máximo cuatrimestre para este año
+    const currentMax = maxQuarterByYear.get(year) || 0;
+    if (quarter > currentMax) {
+      maxQuarterByYear.set(year, quarter);
+    }
+  });
   
   // Generar etiquetas de años y cuatrimestres
   for (let year = 1; year <= maxYear; year++) {
     const yearX = (year - 1) * (CARD_WIDTH + MARGIN_X + YEAR_SPACING) + MARGIN_X;
     yearLabels.push({ year, x: yearX, y: 10 });
+    
+    // Obtener el máximo cuatrimestre para este año
+    const maxQuarterForYear = maxQuarterByYear.get(year) || 1;
 
-    for (let quarter = 1; quarter <= maxQuarter; quarter++) {
+    for (let quarter = 1; quarter <= maxQuarterForYear; quarter++) {
       const quarterX = yearX + (quarter - 1) * (CARD_WIDTH + QUARTER_SPACING);
       quarterLabels.push({ year, quarter, x: quarterX, y: HEADER_HEIGHT });
     }
