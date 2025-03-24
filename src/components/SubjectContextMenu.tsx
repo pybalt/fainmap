@@ -56,6 +56,7 @@ const SubjectContextMenu: React.FC<Props> = ({
       <div 
         className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[999]"
         onClick={onClose}
+        data-testid="backdrop"
       />
       
       <div
