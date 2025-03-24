@@ -127,18 +127,6 @@ const calculateInitialPositions = (subjects: SubjectNodeType[]): LayoutData => {
   };
 };
 
-// Agregar interfaces para los datos de Supabase
-interface CareerSubject {
-  subjectid: number;
-  suggested_year: number;
-  suggested_quarter: number;
-  subjects: {
-    subjectid: number;
-    code: string;
-    name: string;
-  };
-}
-
 // Modificar la función loadSubjectsWithPrerequisites
 const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutData> => {
   console.log('Cargando materias para carrera:', careerid);
@@ -628,15 +616,30 @@ const Dashboard = (): JSX.Element => {
   // Función para calcular la criticidad de los nodos
   const calculateCriticalNodes = useCallback((subjects: SubjectNodeType[]) => {
     // Crear un mapa de materias que son prerequisitos de otras
-    const prerequisiteMap = new Map<number, number[]>();
+    const prerequisiteMap = new Map<string, number[]>();
     
     // Primero, construir el grafo de dependencias
     subjects.forEach(subject => {
-      subject.prerequisites.forEach(prereqId => {
-        if (!prerequisiteMap.has(prereqId)) {
-          prerequisiteMap.set(prereqId, []);
+      subject.prerequisites.forEach(prereq => {
+        // Obtener el código del prerequisito según su formato
+        let prereqCode: string;
+        
+        if (typeof prereq === 'object' && prereq.code) {
+          prereqCode = prereq.code;
+        } else if (typeof prereq === 'object' && prereq.id) {
+          // Buscar el código por ID
+          const prereqSubject = subjects.find(s => s.subjectid === prereq.id);
+          prereqCode = prereqSubject?.code || String(prereq.id);
+        } else {
+          // Si es un número, buscar el código correspondiente o usar el número como string
+          const prereqSubject = subjects.find(s => s.subjectid === prereq);
+          prereqCode = prereqSubject?.code || String(prereq);
         }
-        prerequisiteMap.get(prereqId)?.push(subject.subjectid);
+        
+        if (!prerequisiteMap.has(prereqCode)) {
+          prerequisiteMap.set(prereqCode, []);
+        }
+        prerequisiteMap.get(prereqCode)?.push(subject.subjectid);
       });
     });
 
@@ -645,7 +648,11 @@ const Dashboard = (): JSX.Element => {
       if (visited.has(subjectId)) return 0;
       visited.add(subjectId);
 
-      const directDependents = prerequisiteMap.get(subjectId) || [];
+      // Buscar el código de la materia
+      const subject = subjects.find(s => s.subjectid === subjectId);
+      if (!subject) return 0;
+      
+      const directDependents = prerequisiteMap.get(subject.code) || [];
       let count = directDependents.length;
 
       // Contar también las materias que se desbloquean indirectamente
