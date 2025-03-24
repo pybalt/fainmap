@@ -3,6 +3,7 @@ import type { SubjectNode as SubjectNodeType } from '../types/database';
 import type { Theme } from '../types/theme';
 import SubjectNode from './SubjectNode';
 import Arrow from './Arrow';
+import SubjectContextMenu from './SubjectContextMenu';
 
 interface SubjectMapProps {
   subjects: SubjectNodeType[];
@@ -33,6 +34,10 @@ const SubjectMap: React.FC<SubjectMapProps> = ({
   const [lastPinchDistance, setLastPinchDistance] = useState<number | null>(null);
   const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const [hoveredSubject, setHoveredSubject] = useState<number | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    subjectId: number;
+    position: { x: number; y: number };
+  } | null>(null);
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -276,6 +281,10 @@ const SubjectMap: React.FC<SubjectMapProps> = ({
         isHighlighted={hoveredSubject ? subject.subjectid === hoveredSubject || isCorrelative(subject.subjectid) : false}
         onHover={() => setHoveredSubject(subject.subjectid)}
         onHoverEnd={() => setHoveredSubject(null)}
+        onContextMenu={(position) => setContextMenu({
+          subjectId: subject.subjectid,
+          position
+        })}
       />
     ));
   }, [subjects, isSubjectEnabled, onSubjectStatusChange, onSubjectGradeChange, 
@@ -299,6 +308,7 @@ const SubjectMap: React.FC<SubjectMapProps> = ({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onClick={() => setContextMenu(null)}
     >
       {yearLabels.map(label => (
         <div
@@ -333,6 +343,24 @@ const SubjectMap: React.FC<SubjectMapProps> = ({
 
       {arrows}
       {subjectNodes}
+      
+      {contextMenu && (
+        <SubjectContextMenu
+          x={contextMenu.position.x}
+          y={contextMenu.position.y}
+          onClose={() => setContextMenu(null)}
+          theme={currentTheme}
+          grade={subjects.find(s => s.subjectid === contextMenu.subjectId)?.grade}
+          onGradeClick={() => {
+            const subject = subjects.find(s => s.subjectid === contextMenu.subjectId);
+            if (subject) {
+              onSubjectStatusChange(subject.subjectid, 'approved');
+            }
+            setContextMenu(null);
+          }}
+          status={subjects.find(s => s.subjectid === contextMenu.subjectId)?.status || 'pending'}
+        />
+      )}
     </div>
   );
 };

@@ -174,7 +174,6 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
     
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     
-
     const url = `${apiUrl}/api/careers/${careerid}/subjects-with-prerequisites`;
     
     console.log('Cargando materias y prerrequisitos desde:', url);
@@ -222,7 +221,7 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
     return calculateInitialPositions(mappedSubjects);
   } catch (error) {
     console.error('Error al cargar materias:', error);
-    return { subjects: [], yearLabels: [], quarterLabels: [] };
+    throw error;
   }
 };
 
@@ -412,9 +411,6 @@ const Dashboard = (): JSX.Element => {
         console.log('Cargando materias para carrera:', selectedCareer);
         setLoading(prevState => ({ ...prevState, subjects: true }));
         
-        // Obtener token de autenticación
-        const token = localStorage.getItem('token');
-        
         // Cargar materias desde la base de datos
         const layoutData = await loadSubjectsWithPrerequisites(selectedCareer);
         
@@ -423,47 +419,13 @@ const Dashboard = (): JSX.Element => {
         setYearLabels(layoutData.yearLabels);
         setQuarterLabels(layoutData.quarterLabels);
         
-        // Luego, cargar materias aprobadas
+        // Luego, cargar materias aprobadas y en curso
         const legajo = localStorage.getItem('userLegajo');
         if (legajo) {
-          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-
-          const url = `${apiUrl}/api/students/${legajo}/approved-subjects-with-details?careerid=${selectedCareer}`;
-          
-          console.log('Cargando materias aprobadas desde:', url);
-          const response = await fetch(url, {
-            headers: {
-              'Authorization': token ? `Bearer ${token}` : '',
-            }
-          });
-          
-          if (!response.ok) {
-            if (response.status === 401) {
-              console.error('Error de autenticación. Intente iniciar sesión nuevamente.');
-              throw new Error('Error de autenticación');
-            }
-            throw new Error('Error al cargar materias aprobadas');
-          }
-          
-          const approvedData = await response.json();
-          
-          // Actualizar el estado con las materias aprobadas
-          setSubjects(currentSubjects => {
-            return currentSubjects.map(subject => {
-              const approved = approvedData.find((a: any) => a.subjectid === subject.subjectid);
-              if (approved) {
-                return {
-                  ...subject,
-                  status: 'approved',
-                  grade: approved.grade
-                };
-              }
-              return {
-                ...subject,
-                status: 'pending' as const
-              };
-            });
-          });
+          await Promise.all([
+            loadApprovedSubjects(),
+            loadInProgressSubjects()
+          ]);
         }
         
         // Guardar en localStorage sin caché de tiempo
@@ -503,7 +465,6 @@ const Dashboard = (): JSX.Element => {
       
       const legajo = localStorage.getItem('userLegajo');
       const token = localStorage.getItem('token');
-      // Token de reCAPTCHA simulado para desarrollo
       const recaptchaToken = 'test-token-recaptcha-123456';
       
       if (!legajo) {
@@ -511,17 +472,93 @@ const Dashboard = (): JSX.Element => {
         return;
       }
       
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      
       // Si está cambiando a aprobado, mostrar el diálogo para la nota
       if (status === 'approved') {
+        // Eliminar de materias en curso si existe
+        await fetch(`${apiUrl}/api/students/${legajo}/in-progress-subjects`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : '',
+            'x-recaptcha-token': recaptchaToken
+          },
+          body: JSON.stringify({
+            subjectid: subjectId,
+            careerid: selectedCareer
+          })
+        });
+
         setSubjectForGrade({ id: subjectId, isOpen: true });
         return;
       }
       
-      // Si está cambiando a pendiente, eliminar la materia aprobada
+      // Si está cambiando a pendiente, eliminar de ambas tablas
       if (status === 'pending') {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        const response = await fetch(`${apiUrl}/api/students/${legajo}/approved-subjects`, {
+        // Eliminar de materias aprobadas
+        const approvedResponse = await fetch(`${apiUrl}/api/students/${legajo}/approved-subjects`, {
           method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : '',
+            'x-recaptcha-token': recaptchaToken
+          },
+          body: JSON.stringify({
+            subjectid: subjectId,
+            careerid: selectedCareer
+          })
+        });
+        
+        if (!approvedResponse.ok && approvedResponse.status !== 404) {
+          if (approvedResponse.status === 401) {
+            console.error('Error de autenticación. Intente iniciar sesión nuevamente.');
+            throw new Error('Error de autenticación');
+          }
+          throw new Error('Error al eliminar materia aprobada');
+        }
+
+        // Eliminar de materias en curso
+        const inProgressResponse = await fetch(`${apiUrl}/api/students/${legajo}/in-progress-subjects`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : '',
+            'x-recaptcha-token': recaptchaToken
+          },
+          body: JSON.stringify({
+            subjectid: subjectId,
+            careerid: selectedCareer
+          })
+        });
+        
+        if (!inProgressResponse.ok && inProgressResponse.status !== 404) {
+          if (inProgressResponse.status === 401) {
+            console.error('Error de autenticación. Intente iniciar sesión nuevamente.');
+            throw new Error('Error de autenticación');
+          }
+          throw new Error('Error al eliminar materia en curso');
+        }
+      }
+      
+      // Si está cambiando a en curso, agregar a la tabla de materias en curso
+      if (status === 'in_progress') {
+        // Eliminar de materias aprobadas primero
+        await fetch(`${apiUrl}/api/students/${legajo}/approved-subjects`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : '',
+            'x-recaptcha-token': recaptchaToken
+          },
+          body: JSON.stringify({
+            subjectid: subjectId,
+            careerid: selectedCareer
+          })
+        });
+
+        const response = await fetch(`${apiUrl}/api/students/${legajo}/in-progress-subjects`, {
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': token ? `Bearer ${token}` : '',
@@ -538,15 +575,16 @@ const Dashboard = (): JSX.Element => {
             console.error('Error de autenticación. Intente iniciar sesión nuevamente.');
             throw new Error('Error de autenticación');
           }
-          throw new Error('Error al eliminar materia aprobada');
+          throw new Error('Error al agregar materia en curso');
         }
       }
       
       // Actualizar el estado local
       updateSubjectStatus(subjectId, status);
       
-      // Cargar materias aprobadas para actualizar la vista
+      // Cargar materias aprobadas y en curso para actualizar la vista
       loadApprovedSubjects();
+      loadInProgressSubjects();
     } catch (error) {
       console.error('Error al cambiar estado de materia:', error);
     }
@@ -905,6 +943,58 @@ const Dashboard = (): JSX.Element => {
     
     checkForUpdates();
   }, [selectedCareer, studentid, forceReload]);
+
+  const loadInProgressSubjects = async () => {
+    try {
+      if (!selectedCareer) return;
+      
+      const legajo = localStorage.getItem('userLegajo');
+      const token = localStorage.getItem('token');
+      
+      if (!legajo) {
+        console.error('No se encontró el legajo del usuario');
+        return;
+      }
+      
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const url = `${apiUrl}/api/students/${legajo}/in-progress-subjects`;
+      
+      console.log('Cargando materias en curso desde:', url);
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        }
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Error de autenticación. Intente iniciar sesión nuevamente.');
+          throw new Error('Error de autenticación');
+        }
+        throw new Error('Error al cargar materias en curso');
+      }
+      
+      const inProgressData = await response.json();
+      
+      if (!inProgressData) return;
+      
+      // Actualizar el estado con las materias en curso
+      setSubjects(currentSubjects => {
+        return currentSubjects.map(subject => {
+          const inProgress = inProgressData.find((a: any) => a.subjectid === subject.subjectid);
+          if (inProgress) {
+            return {
+              ...subject,
+              status: 'in_progress'
+            };
+          }
+          return subject;
+        });
+      });
+    } catch (error) {
+      console.error('Error al cargar materias en curso:', error);
+    }
+  };
 
   if (loading.careers || loading.subjects) {
     return (
