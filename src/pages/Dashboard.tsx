@@ -38,6 +38,71 @@ const getAuthToken = async (): Promise<string> => {
   }
 };
 
+// Función mejorada para peticiones HTTP con reintentos en caso de error de autorización
+const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  try {
+    // Obtener token primero
+    const token = await getAuthToken();
+    
+    // Configurar los headers con autorización
+    const headers = {
+      ...options.headers,
+      'Authorization': token ? `Bearer ${token}` : '',
+      'Content-Type': 'application/json'
+    };
+    
+    // Realizar la petición
+    let response = await fetch(url, {
+      ...options,
+      headers
+    });
+    
+    // Si es un error de autorización (401), intentar refrescar token y reintentar
+    if (response.status === 401) {
+      console.log('Token expirado, intentando renovar...');
+      
+      try {
+        // Intentar renovar token - podemos usar una API específica para esto
+        // o simplemente intentar obtener uno nuevo con reCAPTCHA
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const legajo = localStorage.getItem('userLegajo');
+        
+        if (legajo && window.grecaptcha && import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
+          // Obtener un nuevo token de reCAPTCHA
+          const newToken = await window.grecaptcha.execute(
+            import.meta.env.VITE_RECAPTCHA_SITE_KEY, 
+            {action: 'submit'}
+          );
+          
+          if (newToken) {
+            // Guardar el nuevo token
+            localStorage.setItem('token', newToken);
+            
+            // Reintentar la petición con el nuevo token
+            const newHeaders = {
+              ...options.headers,
+              'Authorization': `Bearer ${newToken}`,
+              'Content-Type': 'application/json'
+            };
+            
+            response = await fetch(url, {
+              ...options,
+              headers: newHeaders
+            });
+          }
+        }
+      } catch (refreshError) {
+        console.error('Error al renovar el token:', refreshError);
+      }
+    }
+    
+    return response;
+  } catch (error) {
+    console.error(`Error en fetchWithAuth para ${url}:`, error);
+    throw error;
+  }
+};
+
 interface CriticalityScore {
   subjectId: number;
   score: number;
@@ -196,19 +261,11 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
 
   // Si no hay caché, cargar desde el API
   try {
-    // Obtener token de autenticación
-    const token = await getAuthToken();
-    
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    
     const url = `${apiUrl}/api/careers/${careerid}/subjects-with-prerequisites`;
     
     console.log('Cargando materias y prerrequisitos desde:', url);
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': token ? `Bearer ${token}` : '',
-      }
-    });
+    const response = await fetchWithAuth(url);
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -336,9 +393,6 @@ const Dashboard = (): JSX.Element => {
       console.log('VITE_API_URL:', import.meta.env.VITE_API_URL);
       console.log('VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
       
-      // Obtener token de autenticación
-      const token = await getAuthToken();
-      
       // Verificar si ya hay carreras cacheadas
       const cachedCareers = localStorage.getItem('careers');
       const cacheTimestamp = localStorage.getItem('careers_timestamp');
@@ -376,11 +430,7 @@ const Dashboard = (): JSX.Element => {
       }
 
       
-      const response = await fetch(apiUrl+'/api/careers', {
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-        }
-      });
+      const response = await fetchWithAuth(apiUrl+'/api/careers');
       
       if (!response.ok) {
         if (response.status === 401) {
@@ -491,7 +541,6 @@ const Dashboard = (): JSX.Element => {
       if (!selectedCareer) return;
       
       const legajo = localStorage.getItem('userLegajo');
-      const token = await getAuthToken();
       
       if (!legajo) {
         console.error('No se encontró el legajo del usuario');
@@ -503,12 +552,8 @@ const Dashboard = (): JSX.Element => {
       // Si está cambiando a aprobado, mostrar el diálogo para la nota
       if (status === 'approved') {
         // Eliminar de materias en curso si existe
-        await fetch(`${apiUrl}/api/students/${legajo}/in-progress-subjects`, {
+        await fetchWithAuth(`${apiUrl}/api/students/${legajo}/in-progress-subjects`, {
           method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : ''
-          },
           body: JSON.stringify({
             subjectid: subjectId,
             careerid: selectedCareer
@@ -522,12 +567,8 @@ const Dashboard = (): JSX.Element => {
       // Si está cambiando a pendiente, eliminar de ambas tablas
       if (status === 'pending') {
         // Eliminar de materias aprobadas
-        const approvedResponse = await fetch(`${apiUrl}/api/students/${legajo}/approved-subjects`, {
+        const approvedResponse = await fetchWithAuth(`${apiUrl}/api/students/${legajo}/approved-subjects`, {
           method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : ''
-          },
           body: JSON.stringify({
             subjectid: subjectId,
             careerid: selectedCareer
@@ -543,12 +584,8 @@ const Dashboard = (): JSX.Element => {
         }
 
         // Eliminar de materias en curso
-        const inProgressResponse = await fetch(`${apiUrl}/api/students/${legajo}/in-progress-subjects`, {
+        const inProgressResponse = await fetchWithAuth(`${apiUrl}/api/students/${legajo}/in-progress-subjects`, {
           method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : ''
-          },
           body: JSON.stringify({
             subjectid: subjectId,
             careerid: selectedCareer
@@ -567,24 +604,16 @@ const Dashboard = (): JSX.Element => {
       // Si está cambiando a en curso, agregar a la tabla de materias en curso
       if (status === 'in_progress') {
         // Eliminar de materias aprobadas primero
-        await fetch(`${apiUrl}/api/students/${legajo}/approved-subjects`, {
+        await fetchWithAuth(`${apiUrl}/api/students/${legajo}/approved-subjects`, {
           method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : ''
-          },
           body: JSON.stringify({
             subjectid: subjectId,
             careerid: selectedCareer
           })
         });
 
-        const response = await fetch(`${apiUrl}/api/students/${legajo}/in-progress-subjects`, {
+        const response = await fetchWithAuth(`${apiUrl}/api/students/${legajo}/in-progress-subjects`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : ''
-          },
           body: JSON.stringify({
             subjectid: subjectId,
             careerid: selectedCareer
@@ -613,7 +642,6 @@ const Dashboard = (): JSX.Element => {
 
   const handleSubjectGradeChange = async (subjectId: number, grade: number) => {
     try {
-      const token = await getAuthToken();
       const legajo = localStorage.getItem('userLegajo');
       
       if (!legajo) {
@@ -622,12 +650,8 @@ const Dashboard = (): JSX.Element => {
       }
       
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const response = await fetch(`${apiUrl}/api/students/${legajo}/approved-subjects`, {
+      const response = await fetchWithAuth(`${apiUrl}/api/students/${legajo}/approved-subjects`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
         body: JSON.stringify({
           subjectid: subjectId,
           careerid: selectedCareer,
@@ -852,7 +876,6 @@ const Dashboard = (): JSX.Element => {
       if (!selectedCareer) return;
       
       const legajo = localStorage.getItem('userLegajo');
-      const token = await getAuthToken();
       
       if (!legajo) {
         console.error('No se encontró el legajo del usuario');
@@ -861,16 +884,10 @@ const Dashboard = (): JSX.Element => {
       
       // Cargar las materias aprobadas desde el API
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-
-
       const url = `${apiUrl}/api/students/${legajo}/approved-subjects-with-details?careerid=${selectedCareer}`;
       
       console.log('Cargando materias aprobadas desde:', url);
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '', // Incluir el token
-        }
-      });
+      const response = await fetchWithAuth(url);
       
       if (!response.ok) {
         if (response.status === 401) {
@@ -967,7 +984,6 @@ const Dashboard = (): JSX.Element => {
       if (!selectedCareer) return;
       
       const legajo = localStorage.getItem('userLegajo');
-      const token = await getAuthToken();
       
       if (!legajo) {
         console.error('No se encontró el legajo del usuario');
@@ -978,11 +994,7 @@ const Dashboard = (): JSX.Element => {
       const url = `${apiUrl}/api/students/${legajo}/in-progress-subjects`;
       
       console.log('Cargando materias en curso desde:', url);
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-        }
-      });
+      const response = await fetchWithAuth(url);
       
       if (!response.ok) {
         if (response.status === 401) {
