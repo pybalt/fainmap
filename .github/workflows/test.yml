@@ -21,9 +21,7 @@ jobs:
           cache-dependency-path: 'package-lock.json'
 
       - name: Install dependencies
-        working-directory: ./fainmap
         run: npm ci
 
       - name: Run tests
-        working-directory: ./fainmap
         run: npm test
