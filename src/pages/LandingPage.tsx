@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 
 declare global {
   interface Window {
@@ -47,17 +46,23 @@ const LandingPage = (): JSX.Element => {
         throw new Error('Error de verificación de seguridad');
       }
 
-      if (isLogin) {
-        // Verificar si el usuario existe
-        const { error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('studentid', legajo)
-          .single();
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-        if (error) {
-          console.error('Error al buscar usuario:', error);
-          throw new Error('Credenciales inválidas');
+      if (isLogin) {
+        // Usar endpoint de login
+        const response = await fetch(`${apiUrl}/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Recaptcha-Token': token,
+          },
+          body: JSON.stringify({ legajo }),
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error?.message || 'Error al iniciar sesión');
         }
 
         localStorage.setItem('userLegajo', legajo);
@@ -71,32 +76,20 @@ const LandingPage = (): JSX.Element => {
           throw new Error('Los códigos de legajo no coinciden');
         }
 
-        // Intentar crear el usuario
-        const nameParts = email.split('@')[0].split('.');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts[1] || '';
+        // Usar endpoint de registro
+        const response = await fetch(`${apiUrl}/auth/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Recaptcha-Token': token,
+          },
+          body: JSON.stringify({ legajo, email }),
+          credentials: 'include',
+        });
 
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert([
-            {
-              studentid: legajo,
-              email: email,
-              firstname: firstName.charAt(0).toUpperCase() + firstName.slice(1),
-              lastname: lastName.charAt(0).toUpperCase() + lastName.slice(1)
-            }
-          ])
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error('Error al insertar usuario:', insertError);
-          // Si es un error de validación de la DB o cualquier otro error
-          if (insertError.code === '23514' || // check violation
-              insertError.code === '23505') { // unique violation
-            throw new Error('Credenciales inválidas');
-          }
-          throw new Error('Error en el servidor. Por favor, intente más tarde.');
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error?.message || 'Error al registrarse');
         }
 
         localStorage.setItem('userLegajo', legajo);

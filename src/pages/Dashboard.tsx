@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
 import type { Career, SubjectNode as SubjectNodeType, UserProgress, YearLabel, QuarterLabel } from '../types/database';
 import type { Theme } from '../types/theme';
 import Header from '../components/Header';
@@ -75,12 +74,14 @@ const resolveCollisions = (nodes: NodeWithPosition[]): NodeWithPosition[] => {
 
 // Función para calcular las posiciones iniciales
 const calculateInitialPositions = (subjects: SubjectNodeType[]): LayoutData => {
+  console.log('Calculando posiciones iniciales para', subjects.length, 'materias');
+  
   const maxYear = Math.max(...subjects.map(s => s.suggested_year || 1));
   const maxQuarter = Math.max(...subjects.map(s => s.suggested_quarter || 1));
-
+  
   const yearLabels: YearLabel[] = [];
   const quarterLabels: QuarterLabel[] = [];
-
+  
   // Generar etiquetas de años y cuatrimestres
   for (let year = 1; year <= maxYear; year++) {
     const yearX = (year - 1) * (CARD_WIDTH + MARGIN_X + YEAR_SPACING) + MARGIN_X;
@@ -99,13 +100,15 @@ const calculateInitialPositions = (subjects: SubjectNodeType[]): LayoutData => {
     
     let baseY = HEADER_HEIGHT * 2;
     if (subject.prerequisites.length > 0) {
-      const prerequisiteYs = subject.prerequisites.map(prereqId => {
-        const prereq = subjects.find(s => s.subjectid === prereqId);
-        return prereq?.position?.y || baseY;
+      const prerequisiteYs = subject.prerequisites.map(prereq => {
+        // Obtener el ID del prerequisito según el formato
+        const prereqId = typeof prereq === 'object' ? prereq.id : prereq;
+        const prereqSubject = subjects.find(s => s.subjectid === prereqId);
+        return prereqSubject?.position?.y || baseY;
       });
       baseY = Math.max(...prerequisiteYs);
     }
-
+    
     const baseX = (year - 1) * (CARD_WIDTH + MARGIN_X + YEAR_SPACING) + MARGIN_X;
     const x = baseX + (quarter - 1) * (CARD_WIDTH + QUARTER_SPACING);
     
@@ -114,27 +117,15 @@ const calculateInitialPositions = (subjects: SubjectNodeType[]): LayoutData => {
       position: { x, y: baseY }
     };
   });
-
+  
   const subjectsWithCollisions = resolveCollisions(materiasConPosicion);
-
+  
   return {
     subjects: subjectsWithCollisions,
     yearLabels,
     quarterLabels
   };
 };
-
-// Agregar interfaces para los datos de Supabase
-interface CareerSubject {
-  subjectid: number;
-  suggested_year: number;
-  suggested_quarter: number;
-  subjects: {
-    subjectid: number;
-    code: string;
-    name: string;
-  };
-}
 
 // Modificar la función loadSubjectsWithPrerequisites
 const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutData> => {
@@ -150,58 +141,54 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
     return calculateInitialPositions(parsedSubjects);
   }
 
-  // Si no hay caché, cargar de la base de datos
-  const { data: careerSubjectsData, error: careerSubjectsError } = await supabase
-    .from('careersubjects')
-    .select(`
-      subjectid,
-      suggested_year,
-      suggested_quarter,
-      subjects (
-        subjectid,
-        code,
-        name
-      )
-    `)
-    .eq('careerid', careerid) as { data: CareerSubject[] | null, error: any };
+  // Si no hay caché, cargar desde el API
+  try {
+    // Obtener token de autenticación
+    const token = localStorage.getItem('token');
+    
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const response = await fetch(`${apiUrl}/careers/${careerid}/subjects-with-prerequisites`, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+      }
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        console.error('Error de autenticación. Intente iniciar sesión nuevamente.');
+        throw new Error('Error de autenticación');
+      }
+      throw new Error('Error al cargar materias y prerrequisitos');
+    }
+    
+    const subjectsData = await response.json();
+    
+    if (!subjectsData || subjectsData.length === 0) {
+      console.log('No se encontraron materias para la carrera');
+      return { subjects: [], yearLabels: [], quarterLabels: [] };
+    }
 
-  if (careerSubjectsError) throw careerSubjectsError;
-  if (!careerSubjectsData || careerSubjectsData.length === 0) {
-    console.log('No se encontraron materias para la carrera');
+    // Mapear los datos
+    const mappedSubjects = subjectsData.map((subject: any) => ({
+      subjectid: subject.subjectid,
+      code: subject.code,
+      name: subject.name,
+      status: 'pending' as SubjectNodeType['status'],
+      prerequisites: subject.prerequisites || [],
+      suggested_year: subject.suggested_year,
+      suggested_quarter: subject.suggested_quarter,
+      position: { x: 0, y: 0 }
+    } as SubjectNodeType));
+
+    // Guardar en localStorage
+    localStorage.setItem(cachedSubjectsKey, JSON.stringify(mappedSubjects));
+
+    console.log(`Materias procesadas: ${mappedSubjects.length}`);
+    return calculateInitialPositions(mappedSubjects);
+  } catch (error) {
+    console.error('Error al cargar materias:', error);
     return { subjects: [], yearLabels: [], quarterLabels: [] };
   }
-
-  const { data: prerequisitesData, error: prerequisitesError } = await supabase
-    .from('prerequisites')
-    .select('*');
-
-  if (prerequisitesError) throw prerequisitesError;
-
-  // Mapear los datos
-  const mappedSubjects = careerSubjectsData.map(cs => {
-    if (!cs.subjects) {
-      console.error('Materia sin datos:', cs);
-      return null;
-    }
-    return {
-      subjectid: cs.subjectid,
-      code: cs.subjects.code,
-      name: cs.subjects.name,
-      status: 'pending' as SubjectNodeType['status'],
-      prerequisites: prerequisitesData
-        ?.filter(p => p.subjectid === cs.subjectid)
-        .map(p => p.prerequisiteid) || [],
-      suggested_year: cs.suggested_year,
-      suggested_quarter: cs.suggested_quarter,
-      position: { x: 0, y: 0 }
-    } as SubjectNodeType;
-  }).filter((subject): subject is SubjectNodeType => subject !== null);
-
-  // Guardar en localStorage
-  localStorage.setItem(cachedSubjectsKey, JSON.stringify(mappedSubjects));
-
-  console.log('Materias procesadas:', mappedSubjects);
-  return calculateInitialPositions(mappedSubjects);
 };
 
 const calculateWeightedProgress = (subjects: SubjectNodeType[], criticalNodes: Array<{ subjectId: number; score: number; }>): {
@@ -259,13 +246,17 @@ const Dashboard = (): JSX.Element => {
   const [quarterLabels, setQuarterLabels] = useState<QuarterLabel[]>([]);
   const [careers, setCareers] = useState<Career[]>([]);
   const [selectedCareer, setSelectedCareer] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState({
+    careers: false,
+    subjects: false
+  });
   const [loadingStatus, setLoadingStatus] = useState<string>('Iniciando...');
   const [criticalNodes, setCriticalNodes] = useState<Array<{ subjectId: number; score: number; }>>([]);
   const [isDarkMode, setIsDarkMode] = useState(window.matchMedia('(prefers-color-scheme: dark)').matches);
   const [currentTheme, setCurrentTheme] = useState<Theme>(themes[isDarkMode ? 1 : 0]);
-  const studentid = localStorage.getItem('userLegajo');
+  const studentid = localStorage.getItem('userLegajo') || '';
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [subjectForGrade, setSubjectForGrade] = useState<{ id: number; isOpen: boolean }>({ id: 0, isOpen: false });
 
   // Protección de ruta
   useEffect(() => {
@@ -275,104 +266,172 @@ const Dashboard = (): JSX.Element => {
   }, [studentid, navigate]);
 
   // Cargar carreras
-  useEffect(() => {
-    const loadCareers = async () => {
-      try {
-        console.log('Cargando carreras...');
-        setLoadingStatus('Verificando caché de carreras...');
+  const loadCareers = useCallback(async () => {
+    try {
+      setLoading(prevState => ({ ...prevState, careers: true }));
+      setLoadingStatus('Verificando carreras disponibles...');
+      
+      console.log('Variables de entorno cargadas:');
+      console.log('VITE_API_URL:', import.meta.env.VITE_API_URL);
+      console.log('VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
+      
+      // Obtener token de autenticación
+      const token = localStorage.getItem('token');
+      
+      // Verificar si ya hay carreras cacheadas
+      const cachedCareers = localStorage.getItem('careers');
+      const cacheTimestamp = localStorage.getItem('careers_timestamp');
+      
+      if (cachedCareers && cacheTimestamp) {
+        const currentTime = Date.now();
+        const timestamp = parseInt(cacheTimestamp, 10);
         
-        // Intentar cargar carreras desde localStorage
-        const cachedCareersData = localStorage.getItem('careers_cache');
-        if (cachedCareersData) {
-          const { careers: cachedCareers, timestamp } = JSON.parse(cachedCareersData);
-          const now = new Date().getTime();
+        // Si la caché no ha expirado, usarla
+        if (currentTime - timestamp < CAREERS_CACHE_DURATION) {
+          console.log('Usando carreras cacheadas');
+          const parsedCareers = JSON.parse(cachedCareers);
+          console.log('Carreras en caché:', parsedCareers);
+          setCareers(parsedCareers);
+          setLoading(prevState => ({ ...prevState, careers: false }));
           
-          // Verificar si el caché no ha expirado (3 semanas)
-          if (now - timestamp < CAREERS_CACHE_DURATION) {
-            console.log('Usando caché de carreras');
-            setCareers(cachedCareers);
-            const savedCareer = localStorage.getItem('selectedCareer');
-            if (savedCareer) {
-              setSelectedCareer(parseInt(savedCareer));
-            }
-            return;
+          // Si hay una carrera guardada, seleccionarla
+          const savedCareer = localStorage.getItem('selectedCareer');
+          if (savedCareer) {
+            console.log('Seleccionando carrera guardada:', savedCareer);
+            setSelectedCareer(parseInt(savedCareer));
           }
+          
+          return;
         }
-
-        // Si no hay caché o expiró, cargar desde la base de datos
-        setLoadingStatus('Cargando carreras desde la base de datos...');
-        const { data, error } = await supabase
-          .from('careers')
-          .select('*');
-
-        if (error) throw error;
-
-        console.log('Carreras cargadas:', data);
-        setCareers(data || []);
-
-        // Guardar en caché con timestamp
-        localStorage.setItem('careers_cache', JSON.stringify({
-          careers: data,
-          timestamp: new Date().getTime()
-        }));
-
-        const savedCareer = localStorage.getItem('selectedCareer');
-        if (savedCareer) {
-          console.log('Carrera guardada encontrada:', savedCareer);
-          setSelectedCareer(parseInt(savedCareer));
-        }
-        
-        if (!data || data.length === 0) {
-          console.log('No se encontraron carreras');
-          setLoadingStatus('No se encontraron carreras');
-        }
-      } catch (error) {
-        console.error('Error al cargar carreras:', error);
-        setLoadingStatus('Error al cargar carreras');
       }
-    };
 
-    loadCareers();
+      setLoadingStatus('Cargando carreras desde el servidor...');
+      // Si no hay caché válida, cargar desde el API
+      // Primero intentar con la URL configurada
+      let apiUrl = import.meta.env.VITE_API_URL;
+      if (!apiUrl || apiUrl === '') {
+        console.warn('VITE_API_URL no está definido, usando URL por defecto');
+        apiUrl = 'http://localhost:3000/api';
+      }
+      
+      console.log('Cargando carreras desde:', `${apiUrl}/careers`);
+      const response = await fetch(`${apiUrl}/careers`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        }
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Error de autenticación. Intente iniciar sesión nuevamente.');
+          throw new Error('Error de autenticación');
+        }
+        throw new Error(`Error al cargar carreras: ${response.status} ${response.statusText}`);
+      }
+      
+      const careersData = await response.json();
+      console.log('Carreras cargadas:', careersData);
+      
+      if (!careersData || careersData.length === 0) {
+        console.warn('No se encontraron carreras');
+        setLoadingStatus('No se encontraron carreras disponibles');
+        setCareers([]);
+        setLoading(prevState => ({ ...prevState, careers: false }));
+        return;
+      }
+      
+      setCareers(careersData);
+      
+      // Actualizar caché
+      localStorage.setItem('careers', JSON.stringify(careersData));
+      localStorage.setItem('careers_timestamp', Date.now().toString());
+      
+      // Si hay una carrera guardada, seleccionarla
+      const savedCareer = localStorage.getItem('selectedCareer');
+      if (savedCareer) {
+        console.log('Seleccionando carrera guardada:', savedCareer);
+        setSelectedCareer(parseInt(savedCareer));
+      }
+      
+      setLoadingStatus('Carreras cargadas correctamente');
+    } catch (error) {
+      console.error('Error al cargar carreras:', error);
+      setLoadingStatus('Error al cargar carreras');
+      setCareers([]);
+    } finally {
+      setLoading(prevState => ({ ...prevState, careers: false }));
+    }
   }, []);
+
+  // Cargar carreras al montar el componente
+  useEffect(() => {
+    loadCareers();
+  }, [loadCareers]);
 
   // Cargar materias
   useEffect(() => {
     const loadSubjects = async () => {
-      if (!selectedCareer || !studentid) {
-        setLoading(false);
-        return;
-      }
-
+      if (!selectedCareer) return;
+      
       try {
-        setLoadingStatus('Cargando materias...');
+        console.log('Cargando materias para carrera:', selectedCareer);
+        setLoading(prevState => ({ ...prevState, subjects: true }));
+        
+        // Obtener token de autenticación
+        const token = localStorage.getItem('token');
         
         // Cargar materias desde la base de datos
-        const [layoutData, approvedResponse] = await Promise.all([
-          loadSubjectsWithPrerequisites(selectedCareer),
-          supabase
-            .from('approvedsubjects')
-            .select('*')
-            .eq('studentid', studentid)
-        ]);
-
-        if (approvedResponse.error) throw approvedResponse.error;
-
-        const subjectsWithStatus = layoutData.subjects.map(subject => ({
-          ...subject,
-          status: approvedResponse.data.find(a => a.subjectid === subject.subjectid)
-            ? 'approved' as const
-            : 'pending' as const
-        }));
-
-        setSubjects(subjectsWithStatus);
+        const layoutData = await loadSubjectsWithPrerequisites(selectedCareer);
+        
+        // Inicializar las materias sin estado de aprobación primero
+        setSubjects(layoutData.subjects);
         setYearLabels(layoutData.yearLabels);
         setQuarterLabels(layoutData.quarterLabels);
+        
+        // Luego, cargar materias aprobadas
+        const legajo = localStorage.getItem('userLegajo');
+        if (legajo) {
+          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+          const response = await fetch(`${apiUrl}/students/${legajo}/approved-subjects-with-details?careerid=${selectedCareer}`, {
+            headers: {
+              'Authorization': token ? `Bearer ${token}` : '',
+            }
+          });
+          
+          if (!response.ok) {
+            if (response.status === 401) {
+              console.error('Error de autenticación. Intente iniciar sesión nuevamente.');
+              throw new Error('Error de autenticación');
+            }
+            throw new Error('Error al cargar materias aprobadas');
+          }
+          
+          const approvedData = await response.json();
+          
+          // Actualizar el estado con las materias aprobadas
+          setSubjects(currentSubjects => {
+            return currentSubjects.map(subject => {
+              const approved = approvedData.find((a: any) => a.subjectid === subject.subjectid);
+              if (approved) {
+                return {
+                  ...subject,
+                  status: 'approved',
+                  grade: approved.grade
+                };
+              }
+              return {
+                ...subject,
+                status: 'pending' as const
+              };
+            });
+          });
+        }
         
         // Guardar en localStorage sin caché de tiempo
         const progress: UserProgress = {
           studentid,
           careerid: selectedCareer,
-          subjects: subjectsWithStatus.reduce((acc, subject) => ({
+          subjects: layoutData.subjects.reduce((acc, subject) => ({
             ...acc,
             [subject.subjectid]: {
               status: subject.status,
@@ -387,7 +446,7 @@ const Dashboard = (): JSX.Element => {
         console.error('Error al cargar datos:', error);
         setLoadingStatus('Error al cargar los datos');
       } finally {
-        setLoading(false);
+        setLoading(prevState => ({ ...prevState, subjects: false }));
       }
     };
 
@@ -400,101 +459,132 @@ const Dashboard = (): JSX.Element => {
   };
 
   const handleSubjectStatusChange = async (subjectId: number, status: 'pending' | 'in_progress' | 'approved') => {
-    if (!studentid || !selectedCareer) return;
-
     try {
-      // Actualizar en Supabase
-      if (status === 'approved') {
-        await supabase
-          .from('approvedsubjects')
-          .upsert({
-            studentid,
-            subjectid: subjectId,
-            grade: null,
-            approvaldate: new Date().toISOString().split('T')[0]
-          });
-      } else {
-        // Si no está aprobada, eliminar de approvedsubjects
-        await supabase
-          .from('approvedsubjects')
-          .delete()
-          .eq('studentid', studentid)
-          .eq('subjectid', subjectId);
+      if (!selectedCareer) return;
+      
+      const legajo = localStorage.getItem('userLegajo');
+      const token = localStorage.getItem('token');
+      // Token de reCAPTCHA simulado para desarrollo
+      const recaptchaToken = 'test-token-recaptcha-123456';
+      
+      if (!legajo) {
+        console.error('No se encontró el legajo del usuario');
+        return;
       }
-
-      // Actualizar estado local
-      const updatedSubjects = subjects.map(subject =>
-        subject.subjectid === subjectId
-          ? { ...subject, status, grade: undefined }
-          : subject
-      );
-      setSubjects(updatedSubjects);
-
-      // Actualizar localStorage
-      const progress: UserProgress = {
-        studentid,
-        careerid: selectedCareer,
-        subjects: updatedSubjects.reduce((acc, subject) => ({
-          ...acc,
-          [subject.subjectid]: {
-            status: subject.status,
-            grade: subject.grade,
-            position: subject.position
+      
+      // Si está cambiando a aprobado, mostrar el diálogo para la nota
+      if (status === 'approved') {
+        setSubjectForGrade({ id: subjectId, isOpen: true });
+        return;
+      }
+      
+      // Si está cambiando a pendiente, eliminar la materia aprobada
+      if (status === 'pending') {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+        const response = await fetch(`${apiUrl}/students/${legajo}/approved-subjects`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : '',
+            'x-recaptcha-token': recaptchaToken
+          },
+          body: JSON.stringify({
+            subjectid: subjectId,
+            careerid: selectedCareer
+          })
+        });
+        
+        if (!response.ok) {
+          if (response.status === 401) {
+            console.error('Error de autenticación. Intente iniciar sesión nuevamente.');
+            throw new Error('Error de autenticación');
           }
-        }), {}),
-        lastUpdated: new Date().toISOString()
-      };
-      localStorage.setItem(`progress_${studentid}_${selectedCareer}`, JSON.stringify(progress));
-
-      console.log(`Materia ${subjectId} actualizada a estado: ${status}`);
+          throw new Error('Error al eliminar materia aprobada');
+        }
+      }
+      
+      // Actualizar el estado local
+      updateSubjectStatus(subjectId, status);
+      
+      // Cargar materias aprobadas para actualizar la vista
+      loadApprovedSubjects();
     } catch (error) {
-      console.error('Error al actualizar estado:', error);
-      alert('Error al actualizar el estado de la materia');
+      console.error('Error al cambiar estado de materia:', error);
     }
   };
 
   const handleSubjectGradeChange = async (subjectId: number, grade: number) => {
-    if (!studentid || !selectedCareer) return;
-
     try {
-      // Actualizar en Supabase
-      await supabase
-        .from('approvedsubjects')
-        .upsert({
-          studentid,
-          subjectid: subjectId,
-          grade,
-          approvaldate: new Date().toISOString().split('T')[0]
-        });
-
-      // Actualizar estado local
-      const updatedSubjects = subjects.map(subject =>
-        subject.subjectid === subjectId
-          ? { ...subject, grade }
-          : subject
-      );
-      setSubjects(updatedSubjects);
-
-      // Actualizar localStorage
-      const progress: UserProgress = {
-        studentid,
+      const token = localStorage.getItem('token');
+      const legajo = localStorage.getItem('userLegajo');
+      
+      if (!legajo) {
+        console.error('No se encontró el legajo del usuario');
+        return;
+      }
+      
+      const recaptchaToken = 'test-token-recaptcha-123456'; // Token de prueba para desarrollo
+      
+      console.log('Enviando solicitud para guardar materia aprobada:');
+      console.log('URL:', `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/students/${legajo}/approved-subjects`);
+      console.log('Headers:', {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : '',
+        'x-recaptcha-token': recaptchaToken
+      });
+      console.log('Body:', JSON.stringify({
+        subjectid: subjectId,
         careerid: selectedCareer,
-        subjects: updatedSubjects.reduce((acc, subject) => ({
-          ...acc,
-          [subject.subjectid]: {
-            status: subject.status,
-            grade: subject.grade,
-            position: subject.position
-          }
-        }), {}),
-        lastUpdated: new Date().toISOString()
-      };
-      localStorage.setItem(`progress_${studentid}_${selectedCareer}`, JSON.stringify(progress));
-
-      console.log(`Nota actualizada para materia ${subjectId}: ${grade}`);
+        grade
+      }));
+      
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+      const response = await fetch(`${apiUrl}/students/${legajo}/approved-subjects`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+          'x-recaptcha-token': recaptchaToken
+        },
+        body: JSON.stringify({
+          subjectid: subjectId,
+          careerid: selectedCareer,
+          grade
+        })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Error ${response.status}: ${errorText}`);
+        
+        try {
+          // Intentar parsear como JSON para mostrar un mensaje más claro
+          const errorJson = JSON.parse(errorText);
+          console.error('Error detallado:', errorJson);
+        } catch (e) {
+          // No es JSON, usar el texto directamente
+        }
+        
+        // Si obtenemos un 401, podríamos intentar actualizar el token
+        if (response.status === 401) {
+          console.error('Error de autenticación. Intente iniciar sesión nuevamente.');
+          throw new Error('Error de autenticación');
+        }
+        
+        throw new Error(`Error al guardar materia aprobada: ${response.status} ${errorText}`);
+      }
+      
+      // Actualizar el estado local
+      updateSubjectStatus(subjectId, 'approved');
+      
+      // Cerrar el diálogo
+      setSubjectForGrade({ id: 0, isOpen: false });
+      
+      // Cargar materias aprobadas para actualizar la vista
+      loadApprovedSubjects();
     } catch (error) {
-      console.error('Error al actualizar nota:', error);
-      alert('Error al guardar la nota');
+      console.error('Error al guardar nota:', error);
+      setSubjectForGrade({ id: 0, isOpen: false });
     }
   };
 
@@ -526,15 +616,30 @@ const Dashboard = (): JSX.Element => {
   // Función para calcular la criticidad de los nodos
   const calculateCriticalNodes = useCallback((subjects: SubjectNodeType[]) => {
     // Crear un mapa de materias que son prerequisitos de otras
-    const prerequisiteMap = new Map<number, number[]>();
+    const prerequisiteMap = new Map<string, number[]>();
     
     // Primero, construir el grafo de dependencias
     subjects.forEach(subject => {
-      subject.prerequisites.forEach(prereqId => {
-        if (!prerequisiteMap.has(prereqId)) {
-          prerequisiteMap.set(prereqId, []);
+      subject.prerequisites.forEach(prereq => {
+        // Obtener el código del prerequisito según su formato
+        let prereqCode: string;
+        
+        if (typeof prereq === 'object' && prereq.code) {
+          prereqCode = prereq.code;
+        } else if (typeof prereq === 'object' && prereq.id) {
+          // Buscar el código por ID
+          const prereqSubject = subjects.find(s => s.subjectid === prereq.id);
+          prereqCode = prereqSubject?.code || String(prereq.id);
+        } else {
+          // Si es un número, buscar el código correspondiente o usar el número como string
+          const prereqSubject = subjects.find(s => s.subjectid === prereq);
+          prereqCode = prereqSubject?.code || String(prereq);
         }
-        prerequisiteMap.get(prereqId)?.push(subject.subjectid);
+        
+        if (!prerequisiteMap.has(prereqCode)) {
+          prerequisiteMap.set(prereqCode, []);
+        }
+        prerequisiteMap.get(prereqCode)?.push(subject.subjectid);
       });
     });
 
@@ -543,7 +648,11 @@ const Dashboard = (): JSX.Element => {
       if (visited.has(subjectId)) return 0;
       visited.add(subjectId);
 
-      const directDependents = prerequisiteMap.get(subjectId) || [];
+      // Buscar el código de la materia
+      const subject = subjects.find(s => s.subjectid === subjectId);
+      if (!subject) return 0;
+      
+      const directDependents = prerequisiteMap.get(subject.code) || [];
       let count = directDependents.length;
 
       // Contar también las materias que se desbloquean indirectamente
@@ -644,11 +753,74 @@ const Dashboard = (): JSX.Element => {
     document.title = 'UADE: FAIN MAP';
   }, []);
 
-  if (loading) {
+  // Actualizar el estado de una materia en el componente
+  const updateSubjectStatus = (subjectId: number, status: 'pending' | 'in_progress' | 'approved') => {
+    setSubjects(currentSubjects => {
+      return currentSubjects.map(subject =>
+        subject.subjectid === subjectId
+          ? { ...subject, status }
+          : subject
+      );
+    });
+  };
+
+  // Cargar materias aprobadas desde el API
+  const loadApprovedSubjects = async () => {
+    try {
+      if (!selectedCareer) return;
+      
+      const legajo = localStorage.getItem('userLegajo');
+      const token = localStorage.getItem('token'); // Obtener el token
+      
+      if (!legajo) {
+        console.error('No se encontró el legajo del usuario');
+        return;
+      }
+      
+      // Cargar las materias aprobadas desde el API
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+      const response = await fetch(`${apiUrl}/students/${legajo}/approved-subjects-with-details?careerid=${selectedCareer}`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '', // Incluir el token
+        }
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Error de autenticación. Intente iniciar sesión nuevamente.');
+          throw new Error('Error de autenticación');
+        }
+        throw new Error('Error al cargar materias aprobadas');
+      }
+      
+      const approvedData = await response.json();
+      
+      if (!approvedData) return;
+      
+      // Actualizar el estado con las materias aprobadas
+      setSubjects(currentSubjects => {
+        return currentSubjects.map(subject => {
+          const approved = approvedData.find((a: any) => a.subjectid === subject.subjectid);
+          if (approved) {
+            return {
+              ...subject,
+              status: 'approved',
+              grade: approved.grade
+            };
+          }
+          return subject;
+        });
+      });
+    } catch (error) {
+      console.error('Error al cargar materias aprobadas:', error);
+    }
+  };
+
+  if (loading.careers || loading.subjects) {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
-        <div className="text-2xl text-gray-600 mb-4">Cargando...</div>
-        <div className="text-lg text-gray-500">{loadingStatus}</div>
+        <h1 className="text-2xl font-bold mb-4">Cargando...</h1>
+        <p className="text-gray-600">{loadingStatus}</p>
       </div>
     );
   }
@@ -693,6 +865,56 @@ const Dashboard = (): JSX.Element => {
       </main>
 
       <Footer theme={currentTheme} />
+
+      {/* Diálogo para ingresar nota */}
+      {subjectForGrade.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className={`${currentTheme.cardBg} ${currentTheme.textColor} p-6 rounded-lg shadow-lg max-w-md w-full`}>
+            <h2 className="text-xl font-bold mb-4">Ingresar calificación</h2>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const grade = parseFloat(formData.get('grade') as string);
+              if (grade >= 0 && grade <= 10) {
+                handleSubjectGradeChange(subjectForGrade.id, grade);
+              }
+            }}>
+              <div className="mb-4">
+                <label htmlFor="grade" className="block mb-2">Nota (0-10):</label>
+                <input
+                  type="number"
+                  id="grade"
+                  name="grade"
+                  min="0"
+                  max="10"
+                  step="0.1"
+                  required
+                  className={`w-full px-3 py-2 border rounded-md ${
+                    currentTheme.bgColor === 'bg-gray-100' 
+                      ? 'border-gray-300 text-gray-900 bg-white' 
+                      : 'border-gray-700 text-white bg-gray-700'
+                  }`}
+                />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setSubjectForGrade({ id: 0, isOpen: false })}
+                  className="px-4 py-2 border rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                >
+                  Guardar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
