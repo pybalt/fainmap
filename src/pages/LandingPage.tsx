@@ -88,7 +88,7 @@ const LandingPage = (): JSX.Element => {
           }
 
           // Asegurarse de que hay una respuesta y es válida
-          const data = await response.json();
+          const _ = await response.json(); // Ignorar el valor pero asegurar que es JSON válido
           localStorage.setItem('userLegajo', legajo);
           navigate('/dashboard');
         } catch (error) {
@@ -143,7 +143,7 @@ const LandingPage = (): JSX.Element => {
           }
 
           // Asegurarse de que hay una respuesta y es válida
-          const data = await response.json();
+          const _ = await response.json(); // Ignorar el valor pero asegurar que es JSON válido
           localStorage.setItem('userLegajo', legajo);
           navigate('/dashboard');
         } catch (error) {
