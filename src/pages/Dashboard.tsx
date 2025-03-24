@@ -402,8 +402,12 @@ const Dashboard = (): JSX.Element => {
         // Luego, cargar materias aprobadas
         const legajo = localStorage.getItem('userLegajo');
         if (legajo) {
-          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-          const response = await fetch(`${apiUrl}/students/${legajo}/approved-subjects-with-details?careerid=${selectedCareer}`, {
+          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+          const url = `${apiUrl}/api/students/${legajo}/approved-subjects-with-details?careerid=${selectedCareer}`;
+          
+          console.log('Cargando materias aprobadas desde:', url);
+          const response = await fetch(url, {
             headers: {
               'Authorization': token ? `Bearer ${token}` : '',
             }
@@ -789,8 +793,13 @@ const Dashboard = (): JSX.Element => {
       }
       
       // Cargar las materias aprobadas desde el API
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-      const response = await fetch(`${apiUrl}/students/${legajo}/approved-subjects-with-details?careerid=${selectedCareer}`, {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+
+      const url = `${apiUrl}/api/students/${legajo}/approved-subjects-with-details?careerid=${selectedCareer}`;
+      
+      console.log('Cargando materias aprobadas desde:', url);
+      const response = await fetch(url, {
         headers: {
           'Authorization': token ? `Bearer ${token}` : '', // Incluir el token
         }

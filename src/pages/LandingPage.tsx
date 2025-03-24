@@ -101,10 +101,8 @@ const LandingPage = (): JSX.Element => {
           throw new Error('Los códigos de legajo no coinciden');
         }
 
-        // Usar endpoint de registro - forzar ruta absoluta con /api/
-        const registerUrl = 'https://uademaps-backend.vercel.app/api/auth/register';
-        
-        console.log('Usando URL hardcodeada para registro:', registerUrl);
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const registerUrl = apiUrl + '/api/auth/register';
         try {
           const response = await fetch(registerUrl, {
             method: 'POST',
