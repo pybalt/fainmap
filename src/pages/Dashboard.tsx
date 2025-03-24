@@ -38,16 +38,48 @@ const getAuthToken = async (): Promise<string> => {
   }
 };
 
-// Función mejorada para peticiones HTTP con reintentos en caso de error de autorización
+// Función para refrescar el token JWT
+const refreshToken = async (): Promise<string | null> => {
+  try {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const refreshResponse = await fetch(`${apiUrl}/api/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        refreshToken: localStorage.getItem('refreshToken')
+      })
+    });
+
+    if (refreshResponse.ok) {
+      const data = await refreshResponse.json();
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        return data.token;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error al refrescar el token:', error);
+    return null;
+  }
+};
+
+// Función mejorada para peticiones HTTP con manejo de tokens expirados
 const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
   try {
-    // Obtener token primero
-    const token = await getAuthToken();
+    // Obtener token de autenticación (JWT)
+    const authToken = localStorage.getItem('token');
     
-    // Configurar los headers con autorización
+    if (!authToken) {
+      console.warn('No hay token de autenticación disponible');
+    }
+    
+    // Configurar los headers
     const headers = {
       ...options.headers,
-      'Authorization': token ? `Bearer ${token}` : '',
+      'Authorization': authToken ? `Bearer ${authToken}` : '',
       'Content-Type': 'application/json'
     };
     
@@ -57,42 +89,21 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Re
       headers
     });
     
-    // Si es un error de autorización (401), intentar refrescar token y reintentar
+    // Si es un error de autorización (401), redirigir al login
     if (response.status === 401) {
-      console.log('Token expirado, intentando renovar...');
+      console.log('Token expirado o inválido, redirigiendo al login...');
       
-      try {
-        // Intentar renovar token - podemos usar una API específica para esto
-        // o simplemente intentar obtener uno nuevo con reCAPTCHA
-        const legajo = localStorage.getItem('userLegajo');
-        
-        if (legajo && window.grecaptcha && import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
-          // Obtener un nuevo token de reCAPTCHA
-          const newToken = await window.grecaptcha.execute(
-            import.meta.env.VITE_RECAPTCHA_SITE_KEY, 
-            {action: 'submit'}
-          );
-          
-          if (newToken) {
-            // Guardar el nuevo token
-            localStorage.setItem('token', newToken);
-            
-            // Reintentar la petición con el nuevo token
-            const newHeaders = {
-              ...options.headers,
-              'Authorization': `Bearer ${newToken}`,
-              'Content-Type': 'application/json'
-            };
-            
-            response = await fetch(url, {
-              ...options,
-              headers: newHeaders
-            });
-          }
-        }
-      } catch (refreshError) {
-        console.error('Error al renovar el token:', refreshError);
-      }
+      // Alertar al usuario
+      alert('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+      
+      // Limpiar tokens
+      localStorage.removeItem('token');
+      
+      // Redirigir al login
+      window.location.href = '/';
+      
+      // Devolver la respuesta original para que se maneje en el código que llama
+      return response;
     }
     
     return response;
