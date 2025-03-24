@@ -146,15 +146,13 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
     // Obtener token de autenticación
     const token = localStorage.getItem('token');
     
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     
-    // Asegurarse de que estamos usando la ruta con /api/ prefix
-    const careersUrl = apiUrl.endsWith('/api') ? 
-      `${apiUrl}/careers` : 
-      `${apiUrl}/api/careers`;
+
+    const url = `${apiUrl}/api/careers/${careerid}/subjects-with-prerequisites`;
     
-    console.log('Cargando carreras desde:', careersUrl);
-    const response = await fetch(careersUrl, {
+    console.log('Cargando materias y prerrequisitos desde:', url);
+    const response = await fetch(url, {
       headers: {
         'Authorization': token ? `Bearer ${token}` : '',
       }
@@ -165,7 +163,7 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
         console.error('Error de autenticación. Intente iniciar sesión nuevamente.');
         throw new Error('Error de autenticación');
       }
-      throw new Error('Error al cargar materias y prerrequisitos');
+      throw new Error(`Error al cargar materias y prerrequisitos: ${response.status} ${response.statusText}`);
     }
     
     const subjectsData = await response.json();
@@ -175,6 +173,8 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
       return { subjects: [], yearLabels: [], quarterLabels: [] };
     }
 
+    console.log('Datos de materias recibidos:', subjectsData);
+
     // Mapear los datos
     const mappedSubjects = subjectsData.map((subject: any) => ({
       subjectid: subject.subjectid,
@@ -182,8 +182,8 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
       name: subject.name,
       status: 'pending' as SubjectNodeType['status'],
       prerequisites: subject.prerequisites || [],
-      suggested_year: subject.suggested_year,
-      suggested_quarter: subject.suggested_quarter,
+      suggested_year: subject.suggested_year || 1,
+      suggested_quarter: subject.suggested_quarter || 1,
       position: { x: 0, y: 0 }
     } as SubjectNodeType));
 
