@@ -14,24 +14,25 @@ const SUBJECTS_CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 horas
 // Función mejorada para peticiones HTTP con manejo de tokens expirados
 const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
   try {
-    // Obtener token de autenticación (JWT)
-    const authToken = localStorage.getItem('token');
+    // Obtener token de autenticación 
+    const recaptchaToken = localStorage.getItem('token');
     
-    if (!authToken) {
+    if (!recaptchaToken) {
       console.warn('No hay token de autenticación disponible');
     }
     
     // Configurar los headers
     const headers = {
       ...options.headers,
-      'Authorization': authToken ? `Bearer ${authToken}` : '',
+      'X-Recaptcha-Token': recaptchaToken || '',
       'Content-Type': 'application/json'
     };
     
-    // Realizar la petición
+    // Realizar la petición con credentials: 'include' para enviar cookies
     let response = await fetch(url, {
       ...options,
-      headers
+      headers,
+      credentials: 'include'
     });
     
     // Si es un error de autorización (401), redirigir al login
