@@ -29,31 +29,6 @@ export function LoginForm() {
         try {
             // Aquí iría la lógica para verificar si el legajo existe
             // y crear la sesión del usuario
-            
-            // Ejemplo:
-            // const { data, error } = await supabase
-            //     .from('Users')
-            //     .select('StudentId')
-            //     .eq('StudentId', studentId)
-            //     .single()
-
-            // if (error) throw error
-            
-            // if (!data) {
-            //     // Crear nuevo usuario si no existe
-            //     const { error: insertError } = await supabase
-            //         .from('Users')
-            //         .insert([{ 
-            //             StudentId: studentId,
-            //             FirstName: firstName,
-            //             LastName: lastName
-            //         }])
-            //
-            //     if (insertError) throw insertError
-            // }
-
-            // Redireccionar al dashboard
-            // navigate('/dashboard')
         } catch (err) {
             setError('Error al iniciar sesión')
             console.error(err)
