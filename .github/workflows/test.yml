@@ -1,0 +1,29 @@
+name: Run Tests
+
+on:
+  push:
+    branches: [main, develop, refactor-with-tests]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'fainmap/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: ./fainmap
+        run: npm ci
+
+      - name: Run tests
+        working-directory: ./fainmap
+        run: npm test
