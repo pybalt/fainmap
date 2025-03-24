@@ -24,9 +24,15 @@ export interface Subject {
   };
 }
 
+export interface PrerequisiteSubject {
+  id: number;
+  code?: string;
+  name?: string;
+}
+
 export interface SubjectNode extends Subject {
   status: 'pending' | 'in_progress' | 'approved';
-  prerequisites: number[];
+  prerequisites: (number | PrerequisiteSubject)[];
   grade?: number;
   position: {
     x: number;

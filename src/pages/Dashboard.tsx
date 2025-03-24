@@ -74,12 +74,14 @@ const resolveCollisions = (nodes: NodeWithPosition[]): NodeWithPosition[] => {
 
 // Función para calcular las posiciones iniciales
 const calculateInitialPositions = (subjects: SubjectNodeType[]): LayoutData => {
+  console.log('Calculando posiciones iniciales para', subjects.length, 'materias');
+  
   const maxYear = Math.max(...subjects.map(s => s.suggested_year || 1));
   const maxQuarter = Math.max(...subjects.map(s => s.suggested_quarter || 1));
-
+  
   const yearLabels: YearLabel[] = [];
   const quarterLabels: QuarterLabel[] = [];
-
+  
   // Generar etiquetas de años y cuatrimestres
   for (let year = 1; year <= maxYear; year++) {
     const yearX = (year - 1) * (CARD_WIDTH + MARGIN_X + YEAR_SPACING) + MARGIN_X;
@@ -98,13 +100,15 @@ const calculateInitialPositions = (subjects: SubjectNodeType[]): LayoutData => {
     
     let baseY = HEADER_HEIGHT * 2;
     if (subject.prerequisites.length > 0) {
-      const prerequisiteYs = subject.prerequisites.map(prereqId => {
-        const prereq = subjects.find(s => s.subjectid === prereqId);
-        return prereq?.position?.y || baseY;
+      const prerequisiteYs = subject.prerequisites.map(prereq => {
+        // Obtener el ID del prerequisito según el formato
+        const prereqId = typeof prereq === 'object' ? prereq.id : prereq;
+        const prereqSubject = subjects.find(s => s.subjectid === prereqId);
+        return prereqSubject?.position?.y || baseY;
       });
       baseY = Math.max(...prerequisiteYs);
     }
-
+    
     const baseX = (year - 1) * (CARD_WIDTH + MARGIN_X + YEAR_SPACING) + MARGIN_X;
     const x = baseX + (quarter - 1) * (CARD_WIDTH + QUARTER_SPACING);
     
@@ -113,9 +117,9 @@ const calculateInitialPositions = (subjects: SubjectNodeType[]): LayoutData => {
       position: { x, y: baseY }
     };
   });
-
+  
   const subjectsWithCollisions = resolveCollisions(materiasConPosicion);
-
+  
   return {
     subjects: subjectsWithCollisions,
     yearLabels,
@@ -191,7 +195,7 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
     // Guardar en localStorage
     localStorage.setItem(cachedSubjectsKey, JSON.stringify(mappedSubjects));
 
-    console.log('Materias procesadas:', mappedSubjects);
+    console.log(`Materias procesadas: ${mappedSubjects.length}`);
     return calculateInitialPositions(mappedSubjects);
   } catch (error) {
     console.error('Error al cargar materias:', error);
@@ -523,17 +527,15 @@ const Dashboard = (): JSX.Element => {
 
   const handleSubjectGradeChange = async (subjectId: number, grade: number) => {
     try {
-      if (!selectedCareer) return;
-      
-      const legajo = localStorage.getItem('userLegajo');
       const token = localStorage.getItem('token');
-      // Token de reCAPTCHA simulado para desarrollo
-      const recaptchaToken = 'test-token-recaptcha-123456';
+      const legajo = localStorage.getItem('userLegajo');
       
       if (!legajo) {
         console.error('No se encontró el legajo del usuario');
         return;
       }
+      
+      const recaptchaToken = 'test-token-recaptcha-123456'; // Token de prueba para desarrollo
       
       console.log('Enviando solicitud para guardar materia aprobada:');
       console.log('URL:', `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/students/${legajo}/approved-subjects`);
@@ -542,6 +544,11 @@ const Dashboard = (): JSX.Element => {
         'Authorization': token ? `Bearer ${token}` : '',
         'x-recaptcha-token': recaptchaToken
       });
+      console.log('Body:', JSON.stringify({
+        subjectid: subjectId,
+        careerid: selectedCareer,
+        grade
+      }));
       
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
       const response = await fetch(`${apiUrl}/students/${legajo}/approved-subjects`, {
@@ -559,14 +566,24 @@ const Dashboard = (): JSX.Element => {
       });
       
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Error ${response.status}: ${errorText}`);
+        
+        try {
+          // Intentar parsear como JSON para mostrar un mensaje más claro
+          const errorJson = JSON.parse(errorText);
+          console.error('Error detallado:', errorJson);
+        } catch (e) {
+          // No es JSON, usar el texto directamente
+        }
+        
         // Si obtenemos un 401, podríamos intentar actualizar el token
         if (response.status === 401) {
           console.error('Error de autenticación. Intente iniciar sesión nuevamente.');
-          // Opcionalmente, redirigir a la página de inicio de sesión
-          // navigate('/');
           throw new Error('Error de autenticación');
         }
-        throw new Error('Error al guardar materia aprobada');
+        
+        throw new Error(`Error al guardar materia aprobada: ${response.status} ${errorText}`);
       }
       
       // Actualizar el estado local

@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useMemo } from 'react';
 import type { SubjectNode as SubjectNodeType } from '../types/database';
 import type { Theme } from '../types/theme';
 import SubjectNode from './SubjectNode';
@@ -121,20 +121,166 @@ const SubjectMap: React.FC<SubjectMapProps> = ({
 
   const isSubjectEnabled = useCallback((subject: SubjectNodeType): boolean => {
     if (subject.status === 'approved' || subject.status === 'in_progress') return true;
-    return subject.prerequisites.every(preId => 
-      subjects.find(s => s.subjectid === preId)?.status === 'approved'
-    );
+    
+    if (!subject.prerequisites || subject.prerequisites.length === 0) return true;
+    
+    return subject.prerequisites.every(prerequisite => {
+      let prereqCode;
+      
+      // Determinar el código del prerequisito según su formato
+      if (typeof prerequisite === 'object' && prerequisite.code) {
+        prereqCode = prerequisite.code;
+      } else if (typeof prerequisite === 'object' && prerequisite.id) {
+        // Esto no debería ocurrir en el nuevo formato
+        console.log(`Advertencia: Verificando prerequisito por ID en ${subject.code}`);
+        return false;
+      } else if (typeof prerequisite === 'number') {
+        // Esto es un caso legacy que no debería ocurrir
+        console.log(`Advertencia: Verificando prerequisito numérico en ${subject.code}`);
+        return false;
+      } else {
+        prereqCode = String(prerequisite);
+      }
+      
+      // Buscar el prerequisito por código
+      const prereq = subjects.find(s => s.code === prereqCode);
+      return prereq && prereq.status === 'approved';
+    });
   }, [subjects]);
 
   const isCorrelative = useCallback((subjectId: number): boolean => {
     if (!hoveredSubject) return false;
+    
+    // Encontrar las materias por ID
     const subject = subjects.find(s => s.subjectid === hoveredSubject);
     if (!subject) return false;
+    
     const otherSubject = subjects.find(s => s.subjectid === subjectId);
     if (!otherSubject) return false;
-    return subject.prerequisites.includes(subjectId) || 
-           otherSubject.prerequisites.includes(hoveredSubject);
+    
+    // Revisar si el sujeto tiene entre sus prerrequisitos a la materia actual (por código)
+    const isPrereqOfHovered = subject.prerequisites.some(prereq => {
+      if (typeof prereq === 'object' && prereq.code) {
+        return otherSubject.code === prereq.code;
+      } else if (typeof prereq === 'string') {
+        return otherSubject.code === prereq;
+      }
+      // Ignoramos los casos legacy (ID numérico o objeto sin código)
+      return false;
+    });
+    
+    // Revisar si la materia actual tiene entre sus prerrequisitos al sujeto (por código)
+    const hasHoveredAsPrereq = otherSubject.prerequisites.some(prereq => {
+      if (typeof prereq === 'object' && prereq.code) {
+        return subject.code === prereq.code;
+      } else if (typeof prereq === 'string') {
+        return subject.code === prereq;
+      }
+      // Ignoramos los casos legacy (ID numérico u objeto sin código)
+      return false;
+    });
+    
+    return isPrereqOfHovered || hasHoveredAsPrereq;
   }, [hoveredSubject, subjects]);
+
+  // Memorizar las flechas para evitar recálculos innecesarios
+  const arrows = useMemo(() => {
+    console.log(`Generando ${subjects.length} nodos y sus flechas`);
+    
+    // Verificar si hay subjects con prerequisitos
+    const subjectsWithPrereqs = subjects.filter(s => s.prerequisites && s.prerequisites.length > 0);
+    console.log(`Materias con prerequisitos: ${subjectsWithPrereqs.length}`);
+    
+    if (subjectsWithPrereqs.length > 0) {
+      // Mostrar ejemplo de la primera materia con prerequisitos
+      const example = subjectsWithPrereqs[0];
+      console.log('Ejemplo de materia con prerequisitos:', {
+        code: example.code,
+        prerequisites: example.prerequisites
+      });
+    }
+    
+    return subjects.flatMap(subject => 
+      subject.prerequisites.map(prereq => {
+        // Buscar el prerrequisito SIEMPRE por código
+        let prerequisiteCode;
+        
+        // Determinar el código del prerequisito según el formato
+        if (typeof prereq === 'object' && prereq.code) {
+          prerequisiteCode = prereq.code;
+        } else if (typeof prereq === 'object' && prereq.id) {
+          // Esto es un caso de fallback, pero no debería ocurrir
+          console.log(`Advertencia: Prerequisito con ID sin código para ${subject.code}`);
+          return null;
+        } else if (typeof prereq === 'number') {
+          // Caso legacy - intenta obtener el código por ID
+          console.log(`Advertencia: Prerequisito numérico (legacy) para ${subject.code}`);
+          return null;
+        } else {
+          prerequisiteCode = String(prereq);
+        }
+        
+        // Buscar el prerequisito por código
+        const prerequisite = subjects.find(s => s.code === prerequisiteCode);
+        
+        // Si no se encuentra el prerequisito, registrarlo
+        if (!prerequisite) {
+          console.log(`Prerequisito con código ${prerequisiteCode} no encontrado para ${subject.code}`);
+          return null;
+        }
+
+        const isHighlighted = hoveredSubject && 
+          (hoveredSubject === subject.subjectid || hoveredSubject === prerequisite.subjectid);
+
+        // Asegurar que las posiciones son válidas
+        if (!prerequisite.position || !subject.position) {
+          console.log(`Posición invalida para ${prerequisiteCode} -> ${subject.code}`);
+          return null;
+        }
+
+        // Usar colores más intensos para depuración
+        const arrowColor = isHighlighted ? '#0066FF' : 
+                          (subject.status === 'approved' ? '#00AA00' : 
+                          isDarkMode ? '#AAAAAA' : '#666666');
+
+        return (
+          <Arrow
+            key={`${prerequisite.code}-${subject.code}`}
+            start={{ 
+              x: prerequisite.position.x + (window.innerWidth < 768 ? 140 : 180), 
+              y: prerequisite.position.y + (window.innerWidth < 768 ? 40 : 50)
+            }}
+            end={{ 
+              x: subject.position.x, 
+              y: subject.position.y + (window.innerWidth < 768 ? 40 : 50)
+            }}
+            color={arrowColor}
+          />
+        );
+      }).filter(Boolean)
+    );
+  }, [subjects, hoveredSubject, isDarkMode]);
+
+  const subjectNodes = useMemo(() => {
+    return subjects.map(subject => (
+      <SubjectNode
+        key={subject.subjectid}
+        subject={subject}
+        isEnabled={isSubjectEnabled(subject)}
+        onStatusChange={(status) => onSubjectStatusChange(subject.subjectid, status)}
+        onGradeChange={(grade) => onSubjectGradeChange(subject.subjectid, grade)}
+        onPositionChange={(position, isDragging) => onSubjectPositionChange(position, isDragging, subject.subjectid)}
+        borderColor={getNodeBorderColor(subject.subjectid)}
+        criticalityScore={criticalNodes.find(node => node.subjectId === subject.subjectid)?.score || 0}
+        theme={currentTheme}
+        isHighlighted={hoveredSubject ? subject.subjectid === hoveredSubject || isCorrelative(subject.subjectid) : false}
+        onHover={() => setHoveredSubject(subject.subjectid)}
+        onHoverEnd={() => setHoveredSubject(null)}
+      />
+    ));
+  }, [subjects, isSubjectEnabled, onSubjectStatusChange, onSubjectGradeChange, 
+      onSubjectPositionChange, getNodeBorderColor, criticalNodes, currentTheme, 
+      hoveredSubject, isCorrelative]);
 
   return (
     <div 
@@ -185,47 +331,8 @@ const SubjectMap: React.FC<SubjectMapProps> = ({
         </div>
       ))}
 
-      {subjects.map(subject => 
-        subject.prerequisites.map(prereqId => {
-          const prereq = subjects.find(s => s.subjectid === prereqId);
-          if (!prereq) return null;
-
-          const isHighlighted = hoveredSubject && 
-            (hoveredSubject === subject.subjectid || hoveredSubject === prereqId);
-
-          return (
-            <Arrow
-              key={`${prereqId}-${subject.subjectid}`}
-              start={{ 
-                x: prereq.position.x + (window.innerWidth < 768 ? 140 : 180), 
-                y: prereq.position.y + (window.innerWidth < 768 ? 40 : 50)
-              }}
-              end={{ 
-                x: subject.position.x, 
-                y: subject.position.y + (window.innerWidth < 768 ? 40 : 50)
-              }}
-              color={isHighlighted ? '#60A5FA' : (subject.status === 'approved' ? '#48BB78' : isDarkMode ? '#4A5568' : '#CBD5E0')}
-            />
-          );
-        })
-      )}
-
-      {subjects.map(subject => (
-        <SubjectNode
-          key={subject.subjectid}
-          subject={subject}
-          isEnabled={isSubjectEnabled(subject)}
-          onStatusChange={(status) => onSubjectStatusChange(subject.subjectid, status)}
-          onGradeChange={(grade) => onSubjectGradeChange(subject.subjectid, grade)}
-          onPositionChange={(position, isDragging) => onSubjectPositionChange(position, isDragging, subject.subjectid)}
-          borderColor={getNodeBorderColor(subject.subjectid)}
-          criticalityScore={criticalNodes.find(node => node.subjectId === subject.subjectid)?.score || 0}
-          theme={currentTheme}
-          isHighlighted={hoveredSubject ? subject.subjectid === hoveredSubject || isCorrelative(subject.subjectid) : false}
-          onHover={() => setHoveredSubject(subject.subjectid)}
-          onHoverEnd={() => setHoveredSubject(null)}
-        />
-      ))}
+      {arrows}
+      {subjectNodes}
     </div>
   );
 };
