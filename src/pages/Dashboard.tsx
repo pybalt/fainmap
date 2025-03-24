@@ -11,20 +11,13 @@ const CAREERS_CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 horas
 // Constante para el tiempo de vencimiento de las materias (6 horas)
 const SUBJECTS_CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 horas
 
-// Función mejorada para peticiones HTTP con manejo de tokens expirados
-const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
+// Función mejorada para peticiones HTTP con autenticación
+const fetchWithAuth = async (url: string, token: string, options: RequestInit = {}): Promise<Response> => {
   try {
-    // Obtener token de autenticación 
-    const recaptchaToken = localStorage.getItem('token');
-    
-    if (!recaptchaToken) {
-      console.warn('No hay token de autenticación disponible');
-    }
-    
-    // Configurar los headers
+    // Configurar headers con el token de prueba
     const headers = {
       ...options.headers,
-      'X-Recaptcha-Token': recaptchaToken || '',
+      'x-recaptcha-token': token ? `Bearer ${token}` : '',
       'Content-Type': 'application/json'
     };
     
@@ -35,20 +28,21 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Re
       credentials: 'include'
     });
     
-    // Si es un error de autorización (401), redirigir al login
+    // Si hay error de autorización, intentar redirigir al login
     if (response.status === 401) {
-      console.log('Token expirado o inválido, redirigiendo al login...');
+      console.log('Error de autenticación, redirigiendo al login...');
       
       // Alertar al usuario
       alert('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
       
       // Limpiar tokens
       localStorage.removeItem('token');
+      localStorage.removeItem('userLegajo');
       
       // Redirigir al login
       window.location.href = '/';
       
-      // Devolver la respuesta original para que se maneje en el código que llama
+      // Devolver la respuesta original
       return response;
     }
     
@@ -221,7 +215,8 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
     const url = `${apiUrl}/api/careers/${careerid}/subjects-with-prerequisites`;
     
     console.log('Cargando materias y prerrequisitos desde:', url);
-    const response = await fetchWithAuth(url);
+    const token = localStorage.getItem('token')!;
+    const response = await fetchWithAuth(url, token);
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -385,8 +380,8 @@ const Dashboard = (): JSX.Element => {
         apiUrl = 'http://localhost:3000';
       }
 
-      
-      const response = await fetchWithAuth(apiUrl+'/api/careers');
+      const token = localStorage.getItem('token')!;
+      const response = await fetchWithAuth(apiUrl+'/api/careers', token);
       
       if (!response.ok) {
         if (response.status === 401) {
@@ -495,7 +490,7 @@ const Dashboard = (): JSX.Element => {
   const handleSubjectStatusChange = async (subjectId: number, status: 'pending' | 'in_progress' | 'approved') => {
     try {
       if (!selectedCareer) return;
-      
+      const token = localStorage.getItem('token')!;
       const legajo = localStorage.getItem('userLegajo');
       
       if (!legajo) {
@@ -508,7 +503,7 @@ const Dashboard = (): JSX.Element => {
       // Si está cambiando a aprobado, mostrar el diálogo para la nota
       if (status === 'approved') {
         // Eliminar de materias en curso si existe
-        await fetchWithAuth(`${apiUrl}/api/students/${legajo}/in-progress-subjects`, {
+        await fetchWithAuth(`${apiUrl}/api/students/${legajo}/in-progress-subjects`, token, {
           method: 'DELETE',
           body: JSON.stringify({
             subjectid: subjectId,
@@ -523,7 +518,7 @@ const Dashboard = (): JSX.Element => {
       // Si está cambiando a pendiente, eliminar de ambas tablas
       if (status === 'pending') {
         // Eliminar de materias aprobadas
-        const approvedResponse = await fetchWithAuth(`${apiUrl}/api/students/${legajo}/approved-subjects`, {
+        const approvedResponse = await fetchWithAuth(`${apiUrl}/api/students/${legajo}/approved-subjects`, token, {
           method: 'DELETE',
           body: JSON.stringify({
             subjectid: subjectId,
@@ -540,7 +535,7 @@ const Dashboard = (): JSX.Element => {
         }
 
         // Eliminar de materias en curso
-        const inProgressResponse = await fetchWithAuth(`${apiUrl}/api/students/${legajo}/in-progress-subjects`, {
+        const inProgressResponse = await fetchWithAuth(`${apiUrl}/api/students/${legajo}/in-progress-subjects`, token, {
           method: 'DELETE',
           body: JSON.stringify({
             subjectid: subjectId,
@@ -560,7 +555,7 @@ const Dashboard = (): JSX.Element => {
       // Si está cambiando a en curso, agregar a la tabla de materias en curso
       if (status === 'in_progress') {
         // Eliminar de materias aprobadas primero
-        await fetchWithAuth(`${apiUrl}/api/students/${legajo}/approved-subjects`, {
+        await fetchWithAuth(`${apiUrl}/api/students/${legajo}/approved-subjects`, token, {
           method: 'DELETE',
           body: JSON.stringify({
             subjectid: subjectId,
@@ -568,7 +563,7 @@ const Dashboard = (): JSX.Element => {
           })
         });
 
-        const response = await fetchWithAuth(`${apiUrl}/api/students/${legajo}/in-progress-subjects`, {
+        const response = await fetchWithAuth(`${apiUrl}/api/students/${legajo}/in-progress-subjects`, token, {
           method: 'POST',
           body: JSON.stringify({
             subjectid: subjectId,
@@ -606,7 +601,8 @@ const Dashboard = (): JSX.Element => {
       }
       
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      const response = await fetchWithAuth(`${apiUrl}/api/students/${legajo}/approved-subjects`, {
+      const token = localStorage.getItem('token')!;
+      const response = await fetchWithAuth(`${apiUrl}/api/students/${legajo}/approved-subjects`, token, {
         method: 'POST',
         body: JSON.stringify({
           subjectid: subjectId,
@@ -843,7 +839,8 @@ const Dashboard = (): JSX.Element => {
       const url = `${apiUrl}/api/students/${legajo}/approved-subjects-with-details?careerid=${selectedCareer}`;
       
       console.log('Cargando materias aprobadas desde:', url);
-      const response = await fetchWithAuth(url);
+      const token = localStorage.getItem('token')!;
+      const response = await fetchWithAuth(url, token);
       
       if (!response.ok) {
         if (response.status === 401) {
@@ -950,7 +947,8 @@ const Dashboard = (): JSX.Element => {
       const url = `${apiUrl}/api/students/${legajo}/in-progress-subjects`;
       
       console.log('Cargando materias en curso desde:', url);
-      const response = await fetchWithAuth(url);
+      const token = localStorage.getItem('token')!;
+      const response = await fetchWithAuth(url, token);
       
       if (!response.ok) {
         if (response.status === 401) {
