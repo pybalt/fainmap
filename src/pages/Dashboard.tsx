@@ -64,7 +64,6 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Re
       try {
         // Intentar renovar token - podemos usar una API específica para esto
         // o simplemente intentar obtener uno nuevo con reCAPTCHA
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
         const legajo = localStorage.getItem('userLegajo');
         
         if (legajo && window.grecaptcha && import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
