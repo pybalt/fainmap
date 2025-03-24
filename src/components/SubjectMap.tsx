@@ -359,6 +359,8 @@ const SubjectMap: React.FC<SubjectMapProps> = ({
             setContextMenu(null);
           }}
           status={subjects.find(s => s.subjectid === contextMenu.subjectId)?.status || 'pending'}
+          name={subjects.find(s => s.subjectid === contextMenu.subjectId)?.name || ''}
+          code={subjects.find(s => s.subjectid === contextMenu.subjectId)?.code || ''}
         />
       )}
     </div>
