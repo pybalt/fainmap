@@ -11,6 +11,33 @@ const CAREERS_CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 horas
 // Constante para el tiempo de vencimiento de las materias (6 horas)
 const SUBJECTS_CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 horas
 
+// Función auxiliar para obtener el token de autorización de manera segura
+const getAuthToken = async (): Promise<string> => {
+  try {
+    // Primero intentar obtener el token de localStorage (JWT)
+    const storedToken = localStorage.getItem('token');
+    
+    // Si tenemos grecaptcha disponible y está configurado, usarlo
+    if (window.grecaptcha && import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
+      try {
+        const recaptchaToken = await window.grecaptcha.execute(
+          import.meta.env.VITE_RECAPTCHA_SITE_KEY, 
+          {action: 'submit'}
+        );
+        return recaptchaToken;
+      } catch (error) {
+        console.warn('Error al obtener token de reCAPTCHA, usando token JWT:', error);
+      }
+    }
+    
+    // Si no se pudo obtener un token de reCAPTCHA, usar el JWT
+    return storedToken || '';
+  } catch (error) {
+    console.error('Error al obtener token de autorización:', error);
+    return '';
+  }
+};
+
 interface CriticalityScore {
   subjectId: number;
   score: number;
@@ -170,7 +197,7 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
   // Si no hay caché, cargar desde el API
   try {
     // Obtener token de autenticación
-    const token = localStorage.getItem('token');
+    const token = await getAuthToken();
     
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     
@@ -310,7 +337,7 @@ const Dashboard = (): JSX.Element => {
       console.log('VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL);
       
       // Obtener token de autenticación
-      const token = localStorage.getItem('token');
+      const token = await getAuthToken();
       
       // Verificar si ya hay carreras cacheadas
       const cachedCareers = localStorage.getItem('careers');
@@ -464,8 +491,7 @@ const Dashboard = (): JSX.Element => {
       if (!selectedCareer) return;
       
       const legajo = localStorage.getItem('userLegajo');
-      const token = localStorage.getItem('token');
-      const recaptchaToken = 'test-token-recaptcha-123456';
+      const token = await getAuthToken();
       
       if (!legajo) {
         console.error('No se encontró el legajo del usuario');
@@ -481,8 +507,7 @@ const Dashboard = (): JSX.Element => {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : '',
-            'x-recaptcha-token': recaptchaToken
+            'Authorization': token ? `Bearer ${token}` : ''
           },
           body: JSON.stringify({
             subjectid: subjectId,
@@ -501,8 +526,7 @@ const Dashboard = (): JSX.Element => {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : '',
-            'x-recaptcha-token': recaptchaToken
+            'Authorization': token ? `Bearer ${token}` : ''
           },
           body: JSON.stringify({
             subjectid: subjectId,
@@ -523,8 +547,7 @@ const Dashboard = (): JSX.Element => {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : '',
-            'x-recaptcha-token': recaptchaToken
+            'Authorization': token ? `Bearer ${token}` : ''
           },
           body: JSON.stringify({
             subjectid: subjectId,
@@ -548,8 +571,7 @@ const Dashboard = (): JSX.Element => {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : '',
-            'x-recaptcha-token': recaptchaToken
+            'Authorization': token ? `Bearer ${token}` : ''
           },
           body: JSON.stringify({
             subjectid: subjectId,
@@ -561,8 +583,7 @@ const Dashboard = (): JSX.Element => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : '',
-            'x-recaptcha-token': recaptchaToken
+            'Authorization': token ? `Bearer ${token}` : ''
           },
           body: JSON.stringify({
             subjectid: subjectId,
@@ -592,7 +613,7 @@ const Dashboard = (): JSX.Element => {
 
   const handleSubjectGradeChange = async (subjectId: number, grade: number) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = await getAuthToken();
       const legajo = localStorage.getItem('userLegajo');
       
       if (!legajo) {
@@ -600,15 +621,12 @@ const Dashboard = (): JSX.Element => {
         return;
       }
       
-      const recaptchaToken = 'test-token-recaptcha-123456'; // Token de prueba para desarrollo
-      
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const response = await fetch(`${apiUrl}/api/students/${legajo}/approved-subjects`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : '',
-          'x-recaptcha-token': recaptchaToken
+          'Authorization': token ? `Bearer ${token}` : ''
         },
         body: JSON.stringify({
           subjectid: subjectId,
@@ -834,7 +852,7 @@ const Dashboard = (): JSX.Element => {
       if (!selectedCareer) return;
       
       const legajo = localStorage.getItem('userLegajo');
-      const token = localStorage.getItem('token'); // Obtener el token
+      const token = await getAuthToken();
       
       if (!legajo) {
         console.error('No se encontró el legajo del usuario');
@@ -949,7 +967,7 @@ const Dashboard = (): JSX.Element => {
       if (!selectedCareer) return;
       
       const legajo = localStorage.getItem('userLegajo');
-      const token = localStorage.getItem('token');
+      const token = await getAuthToken();
       
       if (!legajo) {
         console.error('No se encontró el legajo del usuario');

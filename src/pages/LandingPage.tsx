@@ -41,7 +41,7 @@ const LandingPage = (): JSX.Element => {
 
     try {
       const token = await window.grecaptcha.execute(import.meta.env.VITE_RECAPTCHA_SITE_KEY, {action: 'submit'});
-      
+      localStorage.setItem("token", token);
       if (!token) {
         throw new Error('Error de verificación de seguridad');
       }
