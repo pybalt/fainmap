@@ -6,8 +6,10 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import SubjectMap from '../components/SubjectMap';
 
-// Constante para el tiempo de vencimiento de las carreras (3 semanas)
-const CAREERS_CACHE_DURATION = 1000 * 60 * 60 * 24 * 21; // 21 días
+// Constante para el tiempo de vencimiento de las carreras (6 horas)
+const CAREERS_CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 horas
+// Constante para el tiempo de vencimiento de las materias (6 horas)
+const SUBJECTS_CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 horas
 
 interface CriticalityScore {
   subjectId: number;
@@ -133,12 +135,20 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
   
   // Intentar cargar desde localStorage
   const cachedSubjectsKey = `mapped_subjects_${careerid}`;
+  const cachedSubjectsTimestampKey = `mapped_subjects_timestamp_${careerid}`;
   const cachedSubjects = localStorage.getItem(cachedSubjectsKey);
+  const cachedTimestamp = localStorage.getItem(cachedSubjectsTimestampKey);
   
-  if (cachedSubjects) {
-    const parsedSubjects = JSON.parse(cachedSubjects);
+  // Verificar si la caché es válida (no ha expirado)
+  const isCacheValid = cachedSubjects && cachedTimestamp && 
+    (Date.now() - parseInt(cachedTimestamp, 10) < SUBJECTS_CACHE_DURATION);
+  
+  if (isCacheValid) {
     console.log('Usando materias cacheadas');
+    const parsedSubjects = JSON.parse(cachedSubjects);
     return calculateInitialPositions(parsedSubjects);
+  } else {
+    console.log('Caché de materias expirada o no existente, cargando desde el servidor');
   }
 
   // Si no hay caché, cargar desde el API
@@ -189,6 +199,8 @@ const loadSubjectsWithPrerequisites = async (careerid: number): Promise<LayoutDa
 
     // Guardar en localStorage
     localStorage.setItem(cachedSubjectsKey, JSON.stringify(mappedSubjects));
+    localStorage.setItem(cachedSubjectsTimestampKey, Date.now().toString());
+    console.log('Caché de materias actualizada con timestamp:', new Date().toLocaleString());
 
     console.log(`Materias procesadas: ${mappedSubjects.length}`);
     return calculateInitialPositions(mappedSubjects);
@@ -318,15 +330,11 @@ const Dashboard = (): JSX.Element => {
       let apiUrl = import.meta.env.VITE_API_URL;
       if (!apiUrl || apiUrl === '') {
         console.warn('VITE_API_URL no está definido, usando URL por defecto');
-        apiUrl = 'http://localhost:3000/api';
+        apiUrl = 'http://localhost:3000';
       }
+
       
-      // Asegurarse de que estamos usando la ruta con /api/ prefix
-      const careersUrl = apiUrl.endsWith('/api') ? 
-        `${apiUrl}/careers` : 
-        `${apiUrl}/api/careers`;
-      
-      const response = await fetch(careersUrl, {
+      const response = await fetch(apiUrl+'/api/careers', {
         headers: {
           'Authorization': token ? `Bearer ${token}` : '',
         }
@@ -495,8 +503,8 @@ const Dashboard = (): JSX.Element => {
       
       // Si está cambiando a pendiente, eliminar la materia aprobada
       if (status === 'pending') {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-        const response = await fetch(`${apiUrl}/students/${legajo}/approved-subjects`, {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const response = await fetch(`${apiUrl}/api/students/${legajo}/approved-subjects`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
@@ -540,21 +548,8 @@ const Dashboard = (): JSX.Element => {
       
       const recaptchaToken = 'test-token-recaptcha-123456'; // Token de prueba para desarrollo
       
-      console.log('Enviando solicitud para guardar materia aprobada:');
-      console.log('URL:', `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/students/${legajo}/approved-subjects`);
-      console.log('Headers:', {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : '',
-        'x-recaptcha-token': recaptchaToken
-      });
-      console.log('Body:', JSON.stringify({
-        subjectid: subjectId,
-        careerid: selectedCareer,
-        grade
-      }));
-      
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-      const response = await fetch(`${apiUrl}/students/${legajo}/approved-subjects`, {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const response = await fetch(`${apiUrl}/api/students/${legajo}/approved-subjects`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -836,11 +831,70 @@ const Dashboard = (): JSX.Element => {
     }
   };
 
+  // Función para forzar recarga de datos
+  const forceReload = useCallback(() => {
+    if (!selectedCareer) return;
+    
+    // Limpiar las cachés específicas de las materias para la carrera seleccionada
+    localStorage.removeItem(`mapped_subjects_${selectedCareer}`);
+    localStorage.removeItem(`mapped_subjects_timestamp_${selectedCareer}`);
+    localStorage.removeItem(`progress_${studentid}_${selectedCareer}`);
+    
+    // Actualizar UI
+    setSubjects([]);
+    setYearLabels([]);
+    setQuarterLabels([]);
+    
+    // Cargar datos desde el servidor
+    setLoading(prevState => ({ ...prevState, subjects: true }));
+    setLoadingStatus('Recargando datos...');
+    
+    // Recargar materias
+    loadSubjectsWithPrerequisites(selectedCareer)
+      .then(layoutData => {
+        setSubjects(layoutData.subjects);
+        setYearLabels(layoutData.yearLabels);
+        setQuarterLabels(layoutData.quarterLabels);
+        loadApprovedSubjects();
+      })
+      .catch(error => {
+        console.error('Error al recargar datos:', error);
+      })
+      .finally(() => {
+        setLoading(prevState => ({ ...prevState, subjects: false }));
+      });
+  }, [selectedCareer, studentid]);
+
+  // Verificar actualizaciones al cargar
+  useEffect(() => {
+    const checkForUpdates = async () => {
+      // Verificar si hay una carrera seleccionada y legajo
+      if (!selectedCareer || !studentid) return;
+      
+      // Verificar si la caché ha expirado
+      const cachedSubjectsTimestampKey = `mapped_subjects_timestamp_${selectedCareer}`;
+      const cachedTimestamp = localStorage.getItem(cachedSubjectsTimestampKey);
+      
+      if (cachedTimestamp) {
+        const lastUpdate = parseInt(cachedTimestamp, 10);
+        const timeElapsed = Date.now() - lastUpdate;
+        
+        // Si han pasado más de 6 horas, forzar recarga
+        if (timeElapsed > SUBJECTS_CACHE_DURATION) {
+          console.log(`La caché ha expirado (${Math.round(timeElapsed / (1000 * 60 * 60))} horas). Forzando recarga...`);
+          forceReload();
+        }
+      }
+    };
+    
+    checkForUpdates();
+  }, [selectedCareer, studentid, forceReload]);
+
   if (loading.careers || loading.subjects) {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
         <h1 className="text-2xl font-bold mb-4">Cargando...</h1>
-        <p className="text-gray-600">{loadingStatus}</p>
+        <p className="text-gray-600 mb-4">{loadingStatus}</p>
       </div>
     );
   }
@@ -867,6 +921,7 @@ const Dashboard = (): JSX.Element => {
         careers={careers}
         stats={stats}
         onCareerChange={handleCareerChange}
+        onReload={forceReload}
       />
 
       <main className="flex-1 overflow-hidden pt-[calc(4rem+1px)] pb-[calc(3.5rem+1px)]">

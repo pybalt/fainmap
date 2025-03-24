@@ -14,6 +14,7 @@ interface HeaderProps {
     average: string;
   };
   onCareerChange: (careerid: number) => void;
+  onReload?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -21,7 +22,8 @@ const Header: React.FC<HeaderProps> = ({
   selectedCareer,
   careers,
   stats,
-  onCareerChange
+  onCareerChange,
+  onReload
 }) => {
   const navigate = useNavigate();
   const isMobile = window.innerWidth < 768;
@@ -62,15 +64,26 @@ const Header: React.FC<HeaderProps> = ({
               <StatsDisplay stats={stats} />
             </div>
           </div>
-          <button
-            onClick={() => {
-              localStorage.removeItem('userLegajo');
-              navigate('/');
-            }}
-            className="w-full md:w-auto bg-red-600 text-white px-3 py-1.5 text-sm rounded-md hover:bg-red-700"
-          >
-            Cerrar Sesión
-          </button>
+          <div className="flex gap-2">
+            {onReload && (
+              <button
+                onClick={onReload}
+                className="bg-blue-600 text-white px-3 py-1.5 text-sm rounded-md hover:bg-blue-700"
+                title="Recargar datos desde el servidor"
+              >
+                Actualizar
+              </button>
+            )}
+            <button
+              onClick={() => {
+                localStorage.removeItem('userLegajo');
+                navigate('/');
+              }}
+              className="w-full md:w-auto bg-red-600 text-white px-3 py-1.5 text-sm rounded-md hover:bg-red-700"
+            >
+              Cerrar Sesión
+            </button>
+          </div>
         </div>
       </div>
     </header>
