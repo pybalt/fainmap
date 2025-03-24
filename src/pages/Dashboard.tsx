@@ -11,61 +11,6 @@ const CAREERS_CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 horas
 // Constante para el tiempo de vencimiento de las materias (6 horas)
 const SUBJECTS_CACHE_DURATION = 1000 * 60 * 60 * 6; // 6 horas
 
-// Función auxiliar para obtener el token de autorización de manera segura
-const getAuthToken = async (): Promise<string> => {
-  try {
-    // Primero intentar obtener el token de localStorage (JWT)
-    const storedToken = localStorage.getItem('token');
-    
-    // Si tenemos grecaptcha disponible y está configurado, usarlo
-    if (window.grecaptcha && import.meta.env.VITE_RECAPTCHA_SITE_KEY) {
-      try {
-        const recaptchaToken = await window.grecaptcha.execute(
-          import.meta.env.VITE_RECAPTCHA_SITE_KEY, 
-          {action: 'submit'}
-        );
-        return recaptchaToken;
-      } catch (error) {
-        console.warn('Error al obtener token de reCAPTCHA, usando token JWT:', error);
-      }
-    }
-    
-    // Si no se pudo obtener un token de reCAPTCHA, usar el JWT
-    return storedToken || '';
-  } catch (error) {
-    console.error('Error al obtener token de autorización:', error);
-    return '';
-  }
-};
-
-// Función para refrescar el token JWT
-const refreshToken = async (): Promise<string | null> => {
-  try {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    const refreshResponse = await fetch(`${apiUrl}/api/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        refreshToken: localStorage.getItem('refreshToken')
-      })
-    });
-
-    if (refreshResponse.ok) {
-      const data = await refreshResponse.json();
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-        return data.token;
-      }
-    }
-    return null;
-  } catch (error) {
-    console.error('Error al refrescar el token:', error);
-    return null;
-  }
-};
-
 // Función mejorada para peticiones HTTP con manejo de tokens expirados
 const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<Response> => {
   try {
