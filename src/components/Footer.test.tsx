@@ -24,9 +24,9 @@ describe('Footer', () => {
     // Check that the text is rendered
     expect(screen.getByText(/Desarrollado por/i)).toBeInTheDocument();
     
-    // Check that the author name is shown in the link
-    const linkedInLink = screen.getByRole('link');
-    expect(linkedInLink).toHaveTextContent(expectedAuthorName);
+    // Use a more specific selector instead of getByRole('link')
+    const linkedInLink = screen.getByText(expectedAuthorName).closest('a');
+    expect(linkedInLink).not.toBeNull();
     
     // Check that the LinkedIn link is rendered with correct attributes
     expect(linkedInLink).toHaveAttribute('href', expectedAuthorLinkedIn);
