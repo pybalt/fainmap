@@ -46,23 +46,12 @@ const LandingPage = (): JSX.Element => {
         throw new Error('Error de verificación de seguridad');
       }
 
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
       if (isLogin) {
-        // Usar endpoint de login - asegurar que siempre usamos /api/auth/login
-        // Normalizar URL eliminando posibles barras duplicadas
-        let baseUrl = apiUrl;
-        if (baseUrl.endsWith('/')) {
-          baseUrl = baseUrl.slice(0, -1);
-        }
-        
-        // Forzar el uso de /api sin condición
-        const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
-        const loginUrl = `${apiBase}/auth/login`;
-        
-        console.log('URL base:', apiUrl);
-        console.log('URL API base:', apiBase);
-        console.log('Iniciando sesión en:', loginUrl);
+
+        const loginUrl = apiUrl + '/api/auth/login';
+
         try {
           const response = await fetch(loginUrl, {
             method: 'POST',
@@ -112,20 +101,10 @@ const LandingPage = (): JSX.Element => {
           throw new Error('Los códigos de legajo no coinciden');
         }
 
-        // Usar endpoint de registro
-        // Normalizar URL eliminando posibles barras duplicadas
-        let baseUrl = apiUrl;
-        if (baseUrl.endsWith('/')) {
-          baseUrl = baseUrl.slice(0, -1);
-        }
+        // Usar endpoint de registro - forzar ruta absoluta con /api/
+        const registerUrl = 'https://uademaps-backend.vercel.app/api/auth/register';
         
-        // Forzar el uso de /api sin condición
-        const apiBase = baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
-        const registerUrl = `${apiBase}/auth/register`;
-        
-        console.log('URL base:', apiUrl);
-        console.log('URL API base:', apiBase);
-        console.log('Registrando en:', registerUrl);
+        console.log('Usando URL hardcodeada para registro:', registerUrl);
         try {
           const response = await fetch(registerUrl, {
             method: 'POST',
