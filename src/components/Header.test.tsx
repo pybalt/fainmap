@@ -23,26 +23,19 @@ const mockOnReload = vi.fn();
 
 describe('Header', () => {
   // Mock window.innerWidth
-  const originalInnerWidth = window.innerWidth;
-  
   beforeEach(() => {
-    // Reset mocks
-    mockNavigate.mockReset();
-    mockOnCareerChange.mockReset();
-    mockOnReload.mockReset();
-    
+    vi.resetAllMocks();
+    // Don't store the original value since it's not used
+    window.innerWidth = 1024;
+
     // Mock localStorage
     Object.defineProperty(window, 'localStorage', {
       value: {
-        getItem: vi.fn(() => '123456'),
+        getItem: vi.fn(),
+        setItem: vi.fn(),
         removeItem: vi.fn()
       },
-    });
-    
-    // Reset window.innerWidth
-    Object.defineProperty(window, 'innerWidth', {
-      writable: true,
-      value: 1024 // Default to desktop
+      writable: true
     });
   });
 
