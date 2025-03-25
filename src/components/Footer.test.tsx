@@ -15,8 +15,8 @@ describe('Footer', () => {
   };
 
   it('renders correctly with all props', () => {
-    render(<Footer theme={mockTheme} />);
-    
+    render(<Footer currentTheme={mockTheme} />);
+
     // Check that the footer text is rendered
     expect(screen.getByText(/Desarrollado por/i)).toBeInTheDocument();
     
@@ -26,7 +26,7 @@ describe('Footer', () => {
   });
 
   it('applies the correct theme styles', () => {
-    render(<Footer theme={mockTheme} />);
+    render(<Footer currentTheme={mockTheme} />);
     
     // Check that the footer has the correct CSS classes
     const footer = screen.getByRole('contentinfo');
