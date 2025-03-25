@@ -1,13 +1,14 @@
 import { Navigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const studentid = localStorage.getItem('userLegajo');
+  const { isAuthenticated } = useAuth();
 
-  if (!studentid) {
+  if (!isAuthenticated) {
     return <Navigate to="/" replace />;
   }
 

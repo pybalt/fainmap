@@ -1,56 +1,70 @@
 import React from 'react';
 
 interface ArrowProps {
-  start: { x: number; y: number };
-  end: { x: number; y: number };
+  start?: { x: number; y: number };
+  end?: { x: number; y: number };
+  fromX?: number;
+  fromY?: number;
+  toX?: number;
+  toY?: number;
   color?: string;
+  strokeWidth?: number;
 }
 
-const Arrow: React.FC<ArrowProps> = ({ start, end, color = '#CBD5E0' }) => {
-  // Calcular el punto medio para la curva
-  const midX = (start.x + end.x) / 2;
-
-  // Crear el path para la flecha
-  const path = `
-    M ${start.x} ${start.y}
-    C ${midX} ${start.y},
-      ${midX} ${end.y},
-      ${end.x} ${end.y}
-  `;
-
-  // Calcular el ángulo para la punta de la flecha
-  const angle = Math.atan2(end.y - start.y, end.x - start.x);
-  const arrowLength = 10;
-
-  const arrowHead = `
-    M ${end.x} ${end.y}
-    L ${end.x - arrowLength * Math.cos(angle - Math.PI/6)} ${end.y - arrowLength * Math.sin(angle - Math.PI/6)}
-    L ${end.x - arrowLength * Math.cos(angle + Math.PI/6)} ${end.y - arrowLength * Math.sin(angle + Math.PI/6)}
-    Z
-  `;
-
+/**
+ * Arrow component for rendering connections between nodes
+ */
+const Arrow: React.FC<ArrowProps> = (props) => {
+  const { 
+    start, 
+    end, 
+    fromX, 
+    fromY, 
+    toX, 
+    toY, 
+    color = '#CBD5E0', 
+    strokeWidth = 2 
+  } = props;
+  
+  // Support both property styles for backwards compatibility
+  const startX = start?.x || fromX || 0;
+  const startY = start?.y || fromY || 0;
+  const endX = end?.x || toX || 0;
+  const endY = end?.y || toY || 0;
+  
+  // Calculate path
+  const path = `M ${startX} ${startY} L ${endX} ${endY}`;
+  
+  // Calculate arrowhead direction
+  const dx = endX - startX;
+  const dy = endY - startY;
+  const angle = Math.atan2(dy, dx);
+  
+  // Arrowhead coordinates
+  const arrowSize = 8;
+  const arrowPath = `M ${endX} ${endY} L ${endX - arrowSize * Math.cos(angle - Math.PI / 6)} ${endY - arrowSize * Math.sin(angle - Math.PI / 6)} L ${endX - arrowSize * Math.cos(angle + Math.PI / 6)} ${endY - arrowSize * Math.sin(angle + Math.PI / 6)} Z`;
+  
   return (
-    <svg
+    <svg 
       style={{
         position: 'absolute',
-        top: 0,
-        left: 0,
+        top: '0px',
+        left: '0px',
         width: '100%',
         height: '100%',
         pointerEvents: 'none',
         zIndex: 0
       }}
     >
-      <path
-        d={path}
-        fill="none"
-        stroke={color}
-        strokeWidth="2"
-        markerEnd="url(#arrowhead)"
+      <path 
+        d={path} 
+        stroke={color} 
+        strokeWidth={strokeWidth} 
+        fill="none" 
       />
-      <path
-        d={arrowHead}
-        fill={color}
+      <path 
+        d={arrowPath} 
+        fill={color} 
       />
     </svg>
   );
