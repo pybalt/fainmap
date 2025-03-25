@@ -1,7 +1,7 @@
-import { useNavigate } from 'react-router-dom';
 import type { Career } from '../types/database';
 import type { Theme } from '../types/theme';
 import StatsDisplay from './StatsDisplay';
+import { useAuth } from '../hooks/useAuth';
 
 interface HeaderProps {
   currentTheme: Theme;
@@ -10,8 +10,10 @@ interface HeaderProps {
   stats: {
     progress: number;
     weightedProgress: number;
-    inProgress: number;
-    average: string;
+    inProgress?: number;
+    average?: string;
+    totalSubjects?: number;
+    approvedSubjects?: number;
   };
   onCareerChange: (careerid: number) => void;
   onReload?: () => void;
@@ -25,7 +27,7 @@ const Header: React.FC<HeaderProps> = ({
   onCareerChange,
   onReload
 }) => {
-  const navigate = useNavigate();
+  const { userLegajo, logout } = useAuth();
   const isMobile = window.innerWidth < 768;
 
   return (
@@ -39,7 +41,7 @@ const Header: React.FC<HeaderProps> = ({
             <div className="flex flex-col space-y-3 md:flex-row md:items-center md:space-y-0 md:gap-4">
               <div className="text-sm text-gray-500">
                 <span className="font-medium">Legajo: </span>
-                {localStorage.getItem('userLegajo')}
+                {userLegajo}
               </div>
               <div className="relative">
                 <select
@@ -75,10 +77,7 @@ const Header: React.FC<HeaderProps> = ({
               </button>
             )}
             <button
-              onClick={() => {
-                localStorage.removeItem('userLegajo');
-                navigate('/');
-              }}
+              onClick={logout}
               className="w-full md:w-auto bg-red-600 text-white px-3 py-1.5 text-sm rounded-md hover:bg-red-700"
             >
               Cerrar Sesión

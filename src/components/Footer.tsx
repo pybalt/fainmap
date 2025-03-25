@@ -1,12 +1,12 @@
 import type { Theme } from '../types/theme';
 
 interface FooterProps {
-  theme: Theme;
+  currentTheme: Theme;
 }
 
-const Footer: React.FC<FooterProps> = ({ theme }) => {
+const Footer: React.FC<FooterProps> = ({ currentTheme }) => {
   return (
-    <footer className={`text-center p-4 ${theme.secondaryText}`}>
+    <footer className={`text-center p-4 ${currentTheme.secondaryText}`}>
       <p>
         Desarrollado por{' '}
         <a
